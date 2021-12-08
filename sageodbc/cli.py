@@ -20,7 +20,7 @@ pass_manager = click.make_pass_decorator(Manager)
 
 @click.group()
 @click.version_option(__version__, '-V', '--version', message='%(prog)s v%(version)s')
-@click_log.simple_verbosity_option(logger, default="INFO")
+@click_log.simple_verbosity_option(logger, default="WARNING")
 @click.option('--env-file', envvar='ENV_FILE')
 @click.option('--debug/--no-debug', default=False, envvar='SAGEODBC_DEBUG')
 @click.pass_context
