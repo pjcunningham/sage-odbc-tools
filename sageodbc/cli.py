@@ -19,8 +19,8 @@ pass_manager = click.make_pass_decorator(Manager)
 
 
 @click.group()
-@click.version_option(__version__, '-v', '--version', message='%(prog)s v%(version)s')
-@click_log.simple_verbosity_option(logger)
+@click.version_option(__version__, '-V', '--version', message='%(prog)s v%(version)s')
+@click_log.simple_verbosity_option(logger, default="INFO")
 @click.option('--env-file', envvar='ENV_FILE')
 @click.option('--debug/--no-debug', default=False, envvar='SAGEODBC_DEBUG')
 @click.pass_context
@@ -36,14 +36,12 @@ def cli(ctx, env_file, debug):
 
 
 @cli.command('about')
-@click_log.simple_verbosity_option(logger)
 @pass_manager
 def about(manager):
     logger.info('Sage ODBC ... not for accountants')
 
 
 @cli.command('dump-table')
-@click_log.simple_verbosity_option(logger)
 @click.argument('table_name', type=str)
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
@@ -59,7 +57,6 @@ def dump_table(manager: Manager, table_name: str, save_to: str, output_format: O
 
 
 @cli.command('dump-tables')
-@click_log.simple_verbosity_option(logger)
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
 @pass_manager
@@ -73,7 +70,6 @@ def dump_table(manager: Manager, output_directory: str, output_format: OutputFor
 
 
 @cli.command('dump-table-schema')
-@click_log.simple_verbosity_option(logger)
 @click.argument('table_name', type=str)
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @pass_manager
@@ -87,7 +83,6 @@ def dump_table_schema(manager: Manager, table_name: str, save_to: str):
 
 
 @cli.command('dump-table-schemas')
-@click_log.simple_verbosity_option(logger)
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @pass_manager
 def dump_table_schemas(manager: Manager, output_directory: str):
@@ -99,7 +94,6 @@ def dump_table_schemas(manager: Manager, output_directory: str):
 
 
 @cli.command('dump-table-names')
-@click_log.simple_verbosity_option(logger)
 @click.argument('save-to', type=click.Path(exists=False), )
 @pass_manager
 def dump_table_names(manager: Manager, save_to: str):
@@ -111,7 +105,6 @@ def dump_table_names(manager: Manager, save_to: str):
 
 
 @cli.command('dump-table-counts')
-@click_log.simple_verbosity_option(logger)
 @click.argument('save-to', type=click.Path(exists=False), )
 @pass_manager
 def dump_table_counts(manager: Manager, save_to: str):
@@ -123,7 +116,6 @@ def dump_table_counts(manager: Manager, save_to: str):
 
 
 @cli.command('dump-table-count')
-@click_log.simple_verbosity_option(logger)
 @click.argument('table_name', type=str)
 @pass_manager
 def dump_table_count(manager: Manager, table_name: str):
@@ -135,7 +127,6 @@ def dump_table_count(manager: Manager, table_name: str):
 
 
 @cli.command('dump-table-rest-schema')
-@click_log.simple_verbosity_option(logger)
 @click.argument('table_name', type=str)
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @pass_manager
@@ -149,7 +140,6 @@ def dump_table_rest_schema(manager: Manager, table_name: str, save_to: str):
 
 
 @cli.command('dump-table-rest-schemas')
-@click_log.simple_verbosity_option(logger)
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @pass_manager
 def dump_table_rest_schemas(manager: Manager, output_directory: str):
