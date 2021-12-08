@@ -127,23 +127,15 @@ class Manager(object):
         self.logger.info(f'outputted table {table_name} schema to: {output_filename} ')
 
     def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum):
-        try:
-            _connection = self.get_connection()
-            self._internal_dump_table(_connection, table_name, output_filename, output_format)
-        except Exception as ex:
-            self.logger.error(ex, exc_info=self.debug)
-            raise ex
+        _connection = self.get_connection()
+        self._internal_dump_table(_connection, table_name, output_filename, output_format)
 
     def dump_tables(self, output_directory: str, output_format: OutputFormatEnum):
-        try:
-            _connection = self.get_connection()
-            _tables = self._get_tables(_connection)
-            for _table in _tables:
-                _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
-                self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
-        except Exception as ex:
-            self.logger.error(ex, exc_info=self.debug)
-            raise ex
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        for _table in _tables:
+            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
+            self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
         _connection = self.get_connection()
