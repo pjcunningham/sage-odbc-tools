@@ -1,10 +1,8 @@
 # coding: utf-8
 __author__ = 'Paul Cunningham'
-
-import os.path
-
 __copyright = 'Copyright 2021, Paul Cunningham'
 
+import os.path
 from datetime import datetime
 from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -126,9 +124,6 @@ class Manager(object):
         except Exception as ex:
             self.logger.error(ex, exc_info=self.debug)
             raise ex
-        # df = pd.io.sql.read_sql(f'select STOCK_CODE as part, DESCRIPTION as description from STOCK order by STOCK_CODE',
-        #                         connection)
-        # df.to_excel(f"{output_filename}.xlsx", header=True, index=False)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
         _connection = self.get_connection()
