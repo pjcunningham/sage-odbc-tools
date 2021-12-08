@@ -78,6 +78,8 @@ class Manager(object):
         else:
             raise Exception(f'Don'f't know how to output {output_format} format')
 
+        self.logger.info(f'outputted table {table_name} data to: {output_filename}, format: {str(output_format)} ')
+
     def _internal_dump_table_rest_schema(self, connection, table_name, output_filename):
 
         _columns = self._get_columns(connection, table_name)
@@ -110,6 +112,8 @@ class Manager(object):
         with open(output_filename, 'w') as f:
             f.write(_template.render(context=_context))
 
+        self.logger.info(f'outputted table {table_name} REST schema to: {output_filename} ')
+
     def _internal_dump_table_schema(self, connection, table_name, output_filename):
         try:
             _cursor = connection.cursor()
@@ -119,6 +123,8 @@ class Manager(object):
                     f.write(f'{str(_column)}\n')
         finally:
             _cursor.close()
+
+        self.logger.info(f'outputted table {table_name} schema to: {output_filename} ')
 
     def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum):
         try:
@@ -175,8 +181,9 @@ class Manager(object):
             with open(output_filename, 'w') as f:
                 for _table in _tables:
                     _count = _cursor.execute(f"select count(*) from {_table.name}").fetchone()
-                    # _count is a tuple
-                    f.write(f'Table {_table.name}, count: {_count[0]}\n')
+                    _output = f'{_table.name}:{_count[0]}'  # _count is a tuple
+                    self.logger.info(_output)
+                    f.write(f'{_output}\n')
         finally:
             _cursor.close()
 
@@ -188,8 +195,8 @@ class Manager(object):
             if table_name not in [t.name for t in _tables]:
                 raise Exception(f'Table {table_name} does not exist.')
             _count = _cursor.execute(f"select count(*) from {table_name}").fetchone()
-            # _count is a tuple
-            return _count[0]
+            self.logger.info(f'outputted table {table_name} count: {_count[0]}')
+            return _count[0]  # _count is a tuple
         finally:
             _cursor.close()
 
@@ -198,7 +205,6 @@ class Manager(object):
         _tables = self._get_tables(_connection)
         if table_name not in [t.name for t in _tables]:
             raise Exception(f'Table {table_name} does not exist.')
-
         self._internal_dump_table_rest_schema(_connection, table_name, output_filename)
 
     def dump_table_rest_schemas(self, output_directory: str):
