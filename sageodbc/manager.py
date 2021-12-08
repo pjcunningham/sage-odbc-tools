@@ -183,9 +183,12 @@ class Manager(object):
         _connection = self.get_connection()
         try:
             _cursor = _connection.cursor()
+            _tables = self._get_tables(_connection)
+            if table_name not in [t.name for t in _tables]:
+                raise Exception(f'Table {table_name} does not exist.')
             _count = _cursor.execute(f"select count(*) from {table_name}").fetchone()
             # _count is a tuple
-            self.logger.info(_count[0])
+            return _count[0]
         finally:
             _cursor.close()
 
