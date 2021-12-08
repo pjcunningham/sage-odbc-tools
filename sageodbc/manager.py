@@ -133,7 +133,7 @@ class Manager(object):
             _connection = self.get_connection()
             _tables = self._get_tables(_connection)
             for _table in _tables:
-                _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
+                _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
                 self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
         except Exception as ex:
             self.logger.error(ex, exc_info=self.debug)
