@@ -117,7 +117,7 @@ class Manager(object):
             elif output_format == OutputFormatEnum.xlsx:
                 _df.to_excel(output_filename, header=True, index=False)
             elif output_format == OutputFormatEnum.xml:
-                pass
+                _df.to_xml(output_filename, index=False)
             else:
                 raise Exception(f'Don'f't know how to output {output_format} format')
 
