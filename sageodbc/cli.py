@@ -38,7 +38,7 @@ def cli(ctx, env_file, debug):
 @cli.command('about')
 @pass_manager
 def about(manager):
-    logger.info('Sage ODBC ... not for accountants')
+    click.echo('Sage ODBC ... not for accountants')
 
 
 @cli.command('dump-table')
