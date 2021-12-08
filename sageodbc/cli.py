@@ -58,6 +58,20 @@ def dump_table(manager: Manager, table_name: str, save_to: str, output_format: O
         logger.error(ex, exc_info=manager.debug)
 
 
+@cli.command('dump-tables')
+@click_log.simple_verbosity_option(logger)
+@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@pass_manager
+def dump_table(manager: Manager, output_directory: str, output_format: OutputFormatEnum):
+    logger.info(f'Output directory: {output_directory}')
+    logger.info(f'Output format: {output_format}')
+    try:
+        manager.dump_tables(output_directory, output_format)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
 @cli.command('dump-table-schema')
 @click_log.simple_verbosity_option(logger)
 @click.argument('table_name', type=str)

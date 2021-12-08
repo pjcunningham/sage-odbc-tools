@@ -64,6 +64,20 @@ class Manager(object):
         finally:
             _cursor.close()
 
+    def _internal_dump_table(self, connection, table_name, output_filename, output_format):
+
+        _df = pd.io.sql.read_sql(f'select * from {table_name}', connection)
+        if output_format == OutputFormatEnum.csv:
+            _df.to_csv(output_filename, header=True, index=False)
+        elif output_format == OutputFormatEnum.json:
+            _df.to_json(output_filename, orient='table', index=False, indent=2)
+        elif output_format == OutputFormatEnum.xlsx:
+            _df.to_excel(output_filename, header=True, index=False)
+        elif output_format == OutputFormatEnum.xml:
+            _df.to_xml(output_filename, index=False)
+        else:
+            raise Exception(f'Don'f't know how to output {output_format} format')
+
     def _internal_dump_table_rest_schema(self, connection, table_name, output_filename):
 
         _columns = self._get_columns(connection, table_name)
@@ -109,18 +123,18 @@ class Manager(object):
     def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum):
         try:
             _connection = self.get_connection()
-            _df = pd.io.sql.read_sql(f'select * from {table_name}', _connection)
-            if output_format == OutputFormatEnum.csv:
-                _df.to_csv(output_filename, header=True, index=False)
-            elif output_format == OutputFormatEnum.json:
-                _df.to_json(output_filename, orient='table', index=False, indent=2)
-            elif output_format == OutputFormatEnum.xlsx:
-                _df.to_excel(output_filename, header=True, index=False)
-            elif output_format == OutputFormatEnum.xml:
-                _df.to_xml(output_filename, index=False)
-            else:
-                raise Exception(f'Don'f't know how to output {output_format} format')
+            self._internal_dump_table(_connection, table_name, output_filename, output_format)
+        except Exception as ex:
+            self.logger.error(ex, exc_info=self.debug)
+            raise ex
 
+    def dump_tables(self, output_directory: str, output_format: OutputFormatEnum):
+        try:
+            _connection = self.get_connection()
+            _tables = self._get_tables(_connection)
+            for _table in _tables:
+                _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
+                self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
         except Exception as ex:
             self.logger.error(ex, exc_info=self.debug)
             raise ex
