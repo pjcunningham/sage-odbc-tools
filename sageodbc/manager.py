@@ -172,10 +172,11 @@ class Manager(object):
             _table_rows = [table_name for table_name in _cursor.tables()]
             _table_rows.sort(key=lambda name: name)
             _tables = [Table.from_row(t) for t in _table_rows]
-            for _table in _tables:
-                _count = _cursor.execute(f"select count(*) from {_table.name}").fetchone()
-                # _count is a tuple
-                self.logger.info(f'Table {_table.name}, count: {_count[0]}')
+            with open(output_filename, 'w') as f:
+                for _table in _tables:
+                    _count = _cursor.execute(f"select count(*) from {_table.name}").fetchone()
+                    # _count is a tuple
+                    f.write(f'Table {_table.name}, count: {_count[0]}\n')
         finally:
             _cursor.close()
 
