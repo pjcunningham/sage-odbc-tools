@@ -113,7 +113,7 @@ class Manager(object):
             if output_format == OutputFormatEnum.csv:
                 _df.to_csv(output_filename, header=True, index=False)
             elif output_format == OutputFormatEnum.json:
-                pass
+                _df.to_json(output_filename, orient='table', index=False, indent=2)
             elif output_format == OutputFormatEnum.xlsx:
                 _df.to_excel(output_filename, header=True, index=False)
             elif output_format == OutputFormatEnum.xml:
