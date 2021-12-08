@@ -1,6 +1,7 @@
 .idea/
 
 .env*
+!.env.example
 
 # Windows cmd scripts
 *.cmd
