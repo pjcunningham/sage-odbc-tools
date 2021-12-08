@@ -1,0 +1,16 @@
+from marshmallow_jsonapi.flask import Schema, Relationship
+from marshmallow_jsonapi import fields
+
+# Dumped by SageODBC Tools {{ context.now }}, ODBC dsn : {{ context.dsn }}
+
+
+class {{ context.class_name }}Schema(Schema):
+    class Meta:
+        type_ = '{{ context.meta_type }}'
+        self_view = '{{ context.meta_self_view }}'
+        self_view_many = '{{ context.meta_self_view_many }}'
+    {% for field in context.fields %}
+    {{ field.data }}  # {{ field.remarks }}
+    {%- endfor %}
+
+
