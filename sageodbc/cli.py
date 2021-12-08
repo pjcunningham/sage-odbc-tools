@@ -121,7 +121,8 @@ def dump_table_counts(manager: Manager, save_to: str):
 def dump_table_count(manager: Manager, table_name: str):
     logger.info(f'Table Name: {table_name}')
     try:
-        manager.dump_table_count(table_name)
+        _count = manager.dump_table_count(table_name)
+        click.echo(_count)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 
