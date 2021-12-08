@@ -36,6 +36,8 @@ class Manager(object):
         self.connection_string = f'DSN={sage_odbc_dsn};UID={sage_username};PWD={sage_password}'
         self.debug = debug
         self.env = Environment(loader=FileSystemLoader("templates"), autoescape=select_autoescape())
+        self.logger.info(f'Sage DSN:{sage_odbc_dsn}')
+        self.logger.info(f'Sage Username:{sage_username}')
 
     def get_connection(self):
         if self.connection:
