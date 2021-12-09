@@ -66,20 +66,30 @@ class Manager(object):
         finally:
             _cursor.close()
 
-    def _internal_dump_table(self, connection, table_name, output_filename, output_format):
+    def _internal_query(self, connection, query, output_filename, output_format):
 
-        _df = pd.io.sql.read_sql(f'select * from {table_name}', connection)
-        if output_format == OutputFormatEnum.csv:
-            _df.to_csv(output_filename, header=True, index=False)
-        elif output_format == OutputFormatEnum.json:
-            _df.to_json(output_filename, orient='table', index=False, indent=2)
-        elif output_format == OutputFormatEnum.xlsx:
-            _df.to_excel(output_filename, header=True, index=False)
-        elif output_format == OutputFormatEnum.xml:
-            _df.to_xml(output_filename, index=False)
+        try:
+            self.logger.info(f'Running query: {query}')
+            _df = pd.io.sql.read_sql(query, connection)
+            self.logger.info(f'Query results shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
+        except Exception as ex:
+            self.logger.error(ex)
+            raise Exception(f'Invalid query: {query}')
         else:
-            raise Exception(f'Don'f't know how to output {output_format} format')
+            if output_format == OutputFormatEnum.csv:
+                _df.to_csv(output_filename, header=True, index=False)
+            elif output_format == OutputFormatEnum.json:
+                _df.to_json(output_filename, orient='table', index=False, indent=2)
+            elif output_format == OutputFormatEnum.xlsx:
+                _df.to_excel(output_filename, header=True, index=False)
+            elif output_format == OutputFormatEnum.xml:
+                _df.to_xml(output_filename, index=False)
+            else:
+                raise Exception(f'Don'f't know how to output {output_format} format')
 
+    def _internal_dump_table(self, connection, table_name, output_filename, output_format):
+        _query = f'select * from {table_name}'
+        self._internal_query(connection, _query, output_filename, output_format)
         self.logger.info(f'outputted table {table_name} data to: {output_filename}, format: {str(output_format)} ')
 
     def _internal_dump_table_rest_schema(self, connection, table_name, output_filename):
@@ -130,6 +140,9 @@ class Manager(object):
 
     def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum):
         _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        if table_name not in [t.name for t in _tables]:
+            raise Exception(f'Table {table_name} does not exist.')
         self._internal_dump_table(_connection, table_name, output_filename, output_format)
 
     def dump_tables(self, output_directory: str, output_format: OutputFormatEnum):
@@ -207,3 +220,7 @@ class Manager(object):
         for _table in _tables:
             _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.py')
             self._internal_dump_table_rest_schema(_connection, _table.name, _output_filename)
+
+    def query(self, query: str, output_filename: str, output_format: OutputFormatEnum):
+        _connection = self.get_connection()
+        self._internal_query(_connection, query, output_filename, output_format)

@@ -212,6 +212,30 @@ def dump_table_rest_schemas(manager: Manager, output_directory: str):
         logger.error(ex, exc_info=manager.debug)
 
 
+@cli.command('query')
+@click.argument('query', type=str)
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@pass_manager
+def query(manager: Manager, query: str, save_to: str, output_format: OutputFormatEnum):
+    """Execute a Sage query and dump results to file using a given format
+
+        QUERY: the query to execute a
+
+       TABLE_NAME is the name of the table to dump.
+
+       SAVE_TO is the name of the file to dump to.
+
+    """
+    logger.info(f'Query: {query}')
+    logger.info(f'Output file: {save_to}')
+    logger.info(f'Output format: {output_format}')
+    try:
+        manager.query(query, save_to, output_format)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
 cli.add_command(about)
 cli.add_command(dump_table)
 cli.add_command(dump_table_schema)
@@ -221,6 +245,7 @@ cli.add_command(dump_table_counts)
 cli.add_command(dump_table_count)
 cli.add_command(dump_table_rest_schema)
 cli.add_command(dump_table_rest_schemas)
+cli.add_command(query)
 
 
 def main():
