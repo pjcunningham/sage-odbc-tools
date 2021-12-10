@@ -223,9 +223,7 @@ def query(manager: Manager, query: str, save_to: str, output_format: OutputForma
 
         QUERY: the query to execute a
 
-       TABLE_NAME is the name of the table to dump.
-
-       SAVE_TO is the name of the file to dump to.
+        SAVE_TO is the name of the file to dump to.
 
     """
     logger.info(f'Query: {query}')
