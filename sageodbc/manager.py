@@ -7,6 +7,7 @@ from datetime import datetime
 from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import pyodbc
+import re
 from stringutils import snake_case, pascal_case
 import pandas as pd
 from models import OutputFormatEnum, Column, Table
@@ -224,3 +225,37 @@ class Manager(object):
     def query(self, query: str, output_filename: str, output_format: OutputFormatEnum):
         _connection = self.get_connection()
         self._internal_query(_connection, query, output_filename, output_format)
+
+    def query_to_sql(self, query: str, table_name: str, output_filename: str):
+        _connection = self.get_connection()
+        try:
+            self.logger.info(f'Running query: {query}')
+            _df = pd.io.sql.read_sql(query, _connection)
+            self.logger.info(f'Query results shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
+        except Exception as ex:
+            self.logger.error(ex)
+            raise Exception(f'Invalid query: {query}')
+        else:
+            cols = ', '.join(_df.columns.to_list())
+            vals = []
+
+            for index, r in _df.iterrows():
+                row = []
+                for x in r:
+                    row.append(f"'{str(x)}'")
+
+                row_str = ', '.join(row)
+                vals.append(row_str)
+
+            f_values = []
+            for v in vals:
+                f_values.append(f'({v})')
+
+            # Handle inputting NULL values
+            f_values = ', '.join(f_values)
+            f_values = re.sub(r"('None')", "NULL", f_values)
+
+            sql = f"insert into {table_name} ({cols}) values {f_values};"
+
+            with open(output_filename, "w") as f:
+                f.write(sql)

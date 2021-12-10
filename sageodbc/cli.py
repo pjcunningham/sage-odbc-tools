@@ -235,6 +235,30 @@ def query(manager: Manager, query: str, save_to: str, output_format: OutputForma
         logger.error(ex, exc_info=manager.debug)
 
 
+@cli.command('query-to-sql')
+@click.argument('query', type=str)
+@click.argument('table_name', type=str)
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@pass_manager
+def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
+    """Execute a Sage query and dump results to an sql INSERT INTO file
+
+        QUERY: the query to execute a
+
+        TABLE_NAME is the name of the INSERT INTO {table_name}.
+
+        SAVE_TO is the name of the SQL file to dump to.
+
+    """
+    logger.info(f'Query: {query}')
+    logger.info(f'Table Name: {table_name}')
+    logger.info(f'Output file: {save_to}')
+    try:
+        manager.query_to_sql(query, table_name, save_to)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
 cli.add_command(about)
 cli.add_command(dump_table)
 cli.add_command(dump_table_schema)
@@ -245,6 +269,7 @@ cli.add_command(dump_table_count)
 cli.add_command(dump_table_rest_schema)
 cli.add_command(dump_table_rest_schemas)
 cli.add_command(query)
+cli.add_command(query_to_sql)
 
 
 def main():
