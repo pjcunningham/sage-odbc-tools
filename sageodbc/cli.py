@@ -33,6 +33,7 @@ def cli(ctx, env_file, debug):
         _values['SAGE_PASSWORD'],
         debug
     )
+    logger.info(f"Debug mode is {'on' if debug else 'off'}")
 
 
 @cli.command('about')
