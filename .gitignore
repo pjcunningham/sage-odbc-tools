@@ -3,6 +3,9 @@
 .env*
 !.env.example
 
+# SQL files
+.sql/
+
 # Windows cmd scripts
 *.cmd
 
