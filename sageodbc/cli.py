@@ -5,6 +5,7 @@ __copyright = 'Copyright 2021, Paul Cunningham'
 import sys
 import logging
 from dotenv import dotenv_values
+from pathlib import Path
 import click
 import click_log
 from version import __version__
@@ -213,6 +214,52 @@ def dump_table_rest_schemas(manager: Manager, output_directory: str):
         logger.error(ex, exc_info=manager.debug)
 
 
+@cli.command('dump-table-json-net-schema')
+@click.argument('table_name', type=str)
+@click.argument('namespace', type=str)
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@pass_manager
+def dump_table_json_net_schema(manager: Manager, table_name: str, namespace: str, save_to: str):
+    """Create a JSON.NET schema file
+
+       TABLE_NAME is the name of the table.
+
+       NAMESPACE is the namespace of c# class.
+
+       SAVE_TO is the name of the file to dump to.
+    """
+
+    logger.info(f'Table Name: {table_name}')
+    logger.info(f'Output file: {save_to}')
+    try:
+        manager.dump_table_json_net_schema(table_name, namespace, save_to)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
+@cli.command('dump-table-json-net-schemas')
+@click.argument('namespace', type=str)
+@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@pass_manager
+def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directory: str):
+    """Create a JSON.NET schema file for all Sage tables
+
+       Each table is saved to an individual c# file in the OUTPUT_DIRECTORY
+
+       NAMESPACE is the namespace of c# class.
+
+       Filename is snake-cased, lower-cased table name .cs extension
+
+       OUTPUT_DIRECTORY is the name of the directory to dump to.
+    """
+
+    logger.info(f'Output Directory: {output_directory}')
+    try:
+        manager.dump_table_json_net_schemas(namespace, output_directory)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
 @cli.command('query')
 @click.argument('query', type=str)
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
@@ -233,6 +280,30 @@ def query(manager: Manager, query: str, save_to: str, output_format: OutputForma
         manager.query(query, save_to, output_format)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
+
+
+@cli.command('query-from-file')
+@click.argument('query-file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@pass_manager
+def query_from_file(manager: Manager, query_file: str, save_to: str, output_format: OutputFormatEnum):
+    """Execute a Sage query and dump results to file using a given format
+
+        QUERY_FILE: the query file to execute a
+
+        SAVE_TO is the name of the file to dump to.
+
+    """
+    logger.info(f'Query File: {query_file}')
+    logger.info(f'Output file: {save_to}')
+    logger.info(f'Output format: {output_format}')
+    try:
+        query_text = Path(query_file).read_text().replace('\n', ' ')
+        manager.query(query_text, save_to, output_format)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
 
 
 @cli.command('query-to-sql')
@@ -268,7 +339,10 @@ cli.add_command(dump_table_counts)
 cli.add_command(dump_table_count)
 cli.add_command(dump_table_rest_schema)
 cli.add_command(dump_table_rest_schemas)
+cli.add_command(dump_table_json_net_schema)
+cli.add_command(dump_table_json_net_schemas)
 cli.add_command(query)
+cli.add_command(query_from_file)
 cli.add_command(query_to_sql)
 
 

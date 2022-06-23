@@ -8,7 +8,7 @@ from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 import pyodbc
 import re
-from stringutils import snake_case, pascal_case
+from stringutils import snake_case, pascal_case, title_case
 import pandas as pd
 from models import OutputFormatEnum, Column, Table
 
@@ -25,6 +25,21 @@ data_type_lookup = {
     65530: 'fields.Bool',
     65534: 'fields.Integer',
     65535: 'fields.Str',
+}
+
+
+json_net_type_lookup = {
+    1: 'string',
+    4: 'int',
+    5: 'int',
+    8: 'decimal',
+    9: 'DateTime',
+    10: 'DateTime',
+    11: 'DateTime',
+    12: 'string',
+    65530: 'int',
+    65534: 'int',
+    65535: 'string',
 }
 
 
@@ -126,6 +141,51 @@ class Manager(object):
             f.write(_template.render(context=_context))
 
         self.logger.info(f'outputted table {table_name} REST schema to: {output_filename} ')
+
+    def _internal_dump_table_json_net_schema(self, connection, table_name: str, namespace: str, output_filename: str):
+
+        _class_name = pascal_case(title_case(table_name.lower()))
+
+        _columns = self._get_columns(connection, table_name)
+        _fields = []
+        for _column in _columns:
+            _field_type = json_net_type_lookup.get(_column.data_type)
+            if not _field_type:
+                self.logger.error(f'Field type not found for data type: {_column.data_type}, column: {_column.name}, table: {table_name}')
+                continue
+
+            _name = pascal_case(title_case(_column.name.lower()))
+
+            # c# make sure field name doesn't clash with class name
+            if _name == _class_name:
+                _name = f"{_name}_"
+
+            _fields.append(
+                {
+                    'type': _field_type,
+                    'name': _name,
+                    'property_name': _column.name,
+                    'remarks': _column.remarks
+                }
+            )
+
+        _fields.sort(key=lambda item: item['name'])
+
+        table_name = table_name.lower()
+
+        _context = {
+            'now': datetime.utcnow().isoformat(),
+            'dsn': self.dsn,
+            'class_name': _class_name,
+            'namespace': namespace,
+            'fields': _fields,
+        }
+
+        _template = self.env.get_template('json-net.html')
+        with open(output_filename, 'w') as f:
+            f.write(_template.render(context=_context))
+
+        self.logger.info(f'outputted table {table_name} JSON NET schema to: {output_filename} ')
 
     def _internal_dump_table_schema(self, connection, table_name, output_filename):
         try:
@@ -259,3 +319,17 @@ class Manager(object):
 
             with open(output_filename, "w") as f:
                 f.write(sql)
+
+    def dump_table_json_net_schema(self, table_name: str, namespace: str, output_filename: str):
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        if table_name not in [t.name for t in _tables]:
+            raise Exception(f'Table {table_name} does not exist.')
+        self._internal_dump_table_json_net_schema(_connection, table_name, namespace, output_filename)
+
+    def dump_table_json_net_schemas(self, namespace: str, output_directory: str):
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        for _table in _tables:
+            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
+            self._internal_dump_table_json_net_schema(_connection, _table.name, namespace,  _output_filename)

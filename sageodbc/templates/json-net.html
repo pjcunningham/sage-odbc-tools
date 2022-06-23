@@ -1,0 +1,21 @@
+using System;
+using Newtonsoft.Json;
+
+// Dumped by SageODBC Tools {{ context.now }}, ODBC dsn : {{ context.dsn }}
+
+
+namespace {{ context.namespace }}
+{
+    public class {{ context.class_name }}
+    {
+        {% for field in context.fields %}
+
+            // {{ field.remarks }}
+            [JsonProperty("{{ field.property_name }}", Required = Required.Default)]
+            public {{ field.type }} {{ field.name }};
+
+        {%- endfor %}
+
+    }
+
+}
