@@ -6,6 +6,7 @@ using Newtonsoft.Json;
 
 namespace {{ context.namespace }}
 {
+    [MPEV2.Attributes.XafExportable]
     public class {{ context.class_name }}
     {
         {% for field in context.fields %}
