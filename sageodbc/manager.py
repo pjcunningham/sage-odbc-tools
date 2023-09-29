@@ -59,6 +59,20 @@ mysql_type_lookup = {
 }
 
 
+pandas_type_lookup = {
+    1: 'object',
+    4: 'int64',
+    5: 'int64',
+    8: 'float64',
+    9: 'datetime64[ns]',
+    10: 'datetime64[ns]',
+    11: 'datetime64[ns]',
+    12: 'object',
+    65530: 'int64',
+    65534: 'int64',
+    65535: 'object',
+}
+
 
 class Manager(object):
 
@@ -71,7 +85,6 @@ class Manager(object):
         self.env = Environment(loader=FileSystemLoader("templates"), autoescape=select_autoescape())
         self.logger.info(f'Sage DSN:{sage_odbc_dsn}')
         self.logger.info(f'Sage Username:{sage_username}')
-
 
 
     def get_connection(self):
@@ -101,9 +114,21 @@ class Manager(object):
         finally:
             _cursor.close()
 
+    def _internal_table_pandas_datatypes(self, connection, table_name):
+        _columns = self._get_columns(connection, table_name)
+        _types = {}
+        for _column in _columns:
+            _type = pandas_type_lookup.get(_column.data_type)
+            if not _type:
+                self.logger.error(f'Field type not found for data type: {_column.data_type}, column: {_column.name}, table: {table_name}')
+                return
+            _types[_column.name] = _type
+
+        return _types
+
     def _internal_output_to_pandas(self, dataframe, output_filename, output_format):
         if output_format == OutputFormatEnum.csv:
-            dataframe.to_csv(output_filename, header=True, index=False, quoting=csv.QUOTE_ALL)
+            dataframe.to_csv(output_filename, header=True, index=False, quoting=csv.QUOTE_NONNUMERIC)
         elif output_format == OutputFormatEnum.json:
             dataframe.to_json(output_filename, orient='table', index=False, indent=2)
         elif output_format == OutputFormatEnum.xlsx:
@@ -115,10 +140,11 @@ class Manager(object):
 
 
     def _internal_dump_table(self, connection, table_name, output_filename, output_format):
+        _types = self._internal_table_pandas_datatypes(connection, table_name)
         _query = f'select * from {table_name}'
         try:
             self.logger.info(f'Running query: {_query}')
-            _df = pd.io.sql.read_sql(_query, connection)
+            _df = pd.io.sql.read_sql(_query, connection, dtype=_types)
             self.logger.info(f'Query results shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
         except Exception as ex:
             self.logger.error(ex)
