@@ -1,0 +1,8 @@
+-- Dumped by SageODBC Tools {{ context.now }}, ODBC dsn : {{ context.dsn }}
+
+create table if not exists {{ context.table_name }}
+(
+    {% for field in context.fields %}
+        {{ field.name }} {{ field.type }} {{ "(" ~ field.size ~ ")" if field.type == 'varchar' else "" }} {{ 'primary key' if field.is_pk else 'null' }} Comment '{{ field.comment }}'  {{ ", " if not loop.last else "" }}
+    {% endfor %}
+);
