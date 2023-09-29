@@ -330,6 +330,66 @@ def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
         logger.error(ex, exc_info=manager.debug)
 
 
+@cli.command('schema-to-mysql-ddl')
+@click.argument('table_name', type=str)
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@pass_manager
+def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
+    """Create a MySQL file
+
+       TABLE_NAME is the name of the table.
+
+       NAMESPACE is the namespace of c# class.
+
+       SAVE_TO is the name of the file to dump to.
+    """
+    logger.info(f'Table Name: {table_name}')
+    logger.info(f'Output file: {save_to}')
+    try:
+        manager.schema_to_mysql_ddl(table_name, save_to)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
+@cli.command('schemas-to-mysql-ddl')
+@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@pass_manager
+def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
+    """Create a MySQL  file
+
+       TABLE_NAME is the name of the table.
+
+       NAMESPACE is the namespace of c# class.
+
+       SAVE_TO is the name of the file to dump to.
+    """
+    logger.info(f'Output Directory: {output_directory}')
+    try:
+        manager.schemas_to_mysql_ddl(output_directory)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+@cli.command('generate-mysql-load-data')
+@click.argument('input-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.argument('output-filename', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
+@pass_manager
+def generate_mysql_load_data(manager: Manager, input_directory: str, output_filename: str):
+    """Create a MySQL  file
+
+       TABLE_NAME is the name of the table.
+
+       NAMESPACE is the namespace of c# class.
+
+       SAVE_TO is the name of the file to dump to.
+    """
+    logger.info(f'Input Directory: {input_directory}')
+    logger.info(f'Output Filename: {output_filename}')
+    try:
+        manager.generate_mysql_load_data(input_directory, output_filename)
+    except Exception as ex:
+        logger.error(ex, exc_info=manager.debug)
+
+
 cli.add_command(about)
 cli.add_command(dump_table)
 cli.add_command(dump_table_schema)
@@ -344,6 +404,8 @@ cli.add_command(dump_table_json_net_schemas)
 cli.add_command(query)
 cli.add_command(query_from_file)
 cli.add_command(query_to_sql)
+cli.add_command(schema_to_mysql_ddl)
+cli.add_command(schemas_to_mysql_ddl)
 
 
 def main():
