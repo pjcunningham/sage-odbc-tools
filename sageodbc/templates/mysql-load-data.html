@@ -1,5 +1,5 @@
 {% for table in tables %}
-LOAD DATA INFILE '{{ table.path }}' INTO TABLE {{ table.name }} FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
+LOAD DATA INFILE '{{ table.path }}' INTO TABLE {{ table.name }} FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 ROWS
 (
     {% for column in table.columns %}
         {{ column }} {{ ", " if not loop.last else "" }}
