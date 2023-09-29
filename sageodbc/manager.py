@@ -6,11 +6,13 @@ import os.path
 from datetime import datetime
 from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
+import csv
 import pyodbc
 import re
 from stringutils import snake_case, pascal_case, title_case
 import pandas as pd
 from models import OutputFormatEnum, Column, Table
+from helpers import mysql_keywords
 
 
 data_type_lookup = {
@@ -42,6 +44,21 @@ json_net_type_lookup = {
     65535: 'string',
 }
 
+mysql_type_lookup = {
+    1: 'varchar',
+    4: 'integer',
+    5: 'integer',
+    8: 'decimal',
+    9: 'datetime',
+    10: 'datetime',
+    11: 'datetime',
+    12: 'varchar',
+    65530: 'integer',
+    65534: 'integer',
+    65535: 'varchar',
+}
+
+
 
 class Manager(object):
 
@@ -54,6 +71,8 @@ class Manager(object):
         self.env = Environment(loader=FileSystemLoader("templates"), autoescape=select_autoescape())
         self.logger.info(f'Sage DSN:{sage_odbc_dsn}')
         self.logger.info(f'Sage Username:{sage_username}')
+
+
 
     def get_connection(self):
         if self.connection:
@@ -82,31 +101,32 @@ class Manager(object):
         finally:
             _cursor.close()
 
-    def _internal_query(self, connection, query, output_filename, output_format):
-
-        try:
-            self.logger.info(f'Running query: {query}')
-            _df = pd.io.sql.read_sql(query, connection)
-            self.logger.info(f'Query results shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
-        except Exception as ex:
-            self.logger.error(ex)
-            raise Exception(f'Invalid query: {query}')
+    def _internal_output_to_pandas(self, dataframe, output_filename, output_format):
+        if output_format == OutputFormatEnum.csv:
+            dataframe.to_csv(output_filename, header=True, index=False, quoting=csv.QUOTE_ALL)
+        elif output_format == OutputFormatEnum.json:
+            dataframe.to_json(output_filename, orient='table', index=False, indent=2)
+        elif output_format == OutputFormatEnum.xlsx:
+            dataframe.to_excel(output_filename, header=True, index=False)
+        elif output_format == OutputFormatEnum.xml:
+            dataframe.to_xml(output_filename, index=False)
         else:
-            if output_format == OutputFormatEnum.csv:
-                _df.to_csv(output_filename, header=True, index=False)
-            elif output_format == OutputFormatEnum.json:
-                _df.to_json(output_filename, orient='table', index=False, indent=2)
-            elif output_format == OutputFormatEnum.xlsx:
-                _df.to_excel(output_filename, header=True, index=False)
-            elif output_format == OutputFormatEnum.xml:
-                _df.to_xml(output_filename, index=False)
-            else:
-                raise Exception(f'Don'f't know how to output {output_format} format')
+            raise Exception(f'Don'f't know how to output {output_format} format')
+
 
     def _internal_dump_table(self, connection, table_name, output_filename, output_format):
         _query = f'select * from {table_name}'
-        self._internal_query(connection, _query, output_filename, output_format)
-        self.logger.info(f'outputted table {table_name} data to: {output_filename}, format: {str(output_format)} ')
+        try:
+            self.logger.info(f'Running query: {_query}')
+            _df = pd.io.sql.read_sql(_query, connection)
+            self.logger.info(f'Query results shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
+        except Exception as ex:
+            self.logger.error(ex)
+            raise Exception(f'Invalid query: {_query}')
+        else:
+            self.logger.info(f'Table: {table_name} dataframe shape, {_df.shape[0]} rows, {_df.shape[1]} columns')
+            self._internal_output_to_pandas(_df, output_filename, output_format)
+            self.logger.info(f'outputted table {table_name} data to: {output_filename}, format: {str(output_format)} ')
 
     def _internal_dump_table_rest_schema(self, connection, table_name, output_filename):
 
@@ -333,3 +353,103 @@ class Manager(object):
         for _table in _tables:
             _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
             self._internal_dump_table_json_net_schema(_connection, _table.name, namespace,  _output_filename)
+
+    def _safe_name(self, name):
+        _name = snake_case(name.lower())
+
+        if _name.upper() in mysql_keywords:
+            _name = f"{_name}_"
+
+        return _name
+
+
+    def _internal_schema_to_mysql_ddl(self, connection, table_name: str, output_filename: str):
+
+        _table_name = self._safe_name(table_name)
+
+        _columns = self._get_columns(connection, table_name)
+        _fields = []
+        for index, _column in enumerate(_columns):
+            _field_type = mysql_type_lookup.get(_column.data_type)
+            if not _field_type:
+                self.logger.error(f'Field type not found for data type: {_column.data_type}, column: {_column.name}, table: {table_name}')
+                continue
+
+            if _field_type == 'varchar' and _column.column_size > 255:
+                _field_type = 'text'
+
+            _column_name = self._safe_name(_column.name)
+
+            _fields.append(
+                {
+                    'is_pk': index == 0,
+                    'type': _field_type,
+                    'size': _column.column_size,
+                    'name': _column_name,
+                    'comment': _column.remarks
+                }
+            )
+
+        _context = {
+            'now': datetime.utcnow().isoformat(),
+            'dsn': self.dsn,
+            'table_name': _table_name,
+            'fields': _fields,
+        }
+
+        _template = self.env.get_template('mysql-create.html')
+        with open(output_filename, 'w') as f:
+            f.write(_template.render(context=_context))
+
+        self.logger.info(f'outputted table {table_name} MySQL DDL create to: {output_filename} ')
+
+    def schema_to_mysql_ddl(self, table_name: str, output_filename: str):
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        if table_name not in [t.name for t in _tables]:
+            raise Exception(f'Table {table_name} does not exist.')
+        self._internal_schema_to_mysql_ddl(_connection, table_name, output_filename)
+
+    def schemas_to_mysql_ddl(self, output_directory: str):
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+        for _table in _tables:
+            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
+            self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
+
+
+    def generate_mysql_load_data(self, input_directory: str, output_filename: str):
+        _connection = self.get_connection()
+        _tables = self._get_tables(_connection)
+
+        tables = []
+        for _table in _tables:
+            _safe_table_name = self._safe_name(_table.name)
+            _load_data_filename = os.path.join(input_directory, f'{snake_case(_table.name).lower()}.csv').replace('\\', '/')
+
+            _fields = []
+            _variables = []
+            for index, _column in enumerate(self._get_columns(_connection, _table.name)):
+                _field_type = mysql_type_lookup.get(_column.data_type)
+                _column_name = self._safe_name(_column.name)
+                if _field_type == 'datetime':
+                    _variables.append(_column_name)
+                    _column_name = f"@{_column_name}"
+
+                _fields.append(_column_name)
+
+            tables.append(
+                {
+                    'path': _load_data_filename,
+                    'name': _safe_table_name,
+                    'columns': _fields,
+                    'variables': _variables
+                }
+            )
+
+        _template = self.env.get_template('mysql-load-data.html')
+        with open(output_filename, 'w') as f:
+            f.write(_template.render(tables=tables))
+
+        self.logger.info(f'outputted load data file to: {output_filename} ')
+
