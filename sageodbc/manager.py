@@ -44,6 +44,17 @@ json_net_type_lookup = {
     65535: 'string',
 }
 
+# These are table/column names as in SAGE schemas all uppercase
+# if not in this list the first column is the primary key, either None or a tuple
+mysql_primary_keys = {
+    'AUDIT_JOURNAL': None,
+    'AUDIT_VAT': None,
+    'AUDIT_USAGE': ('USAGE_NUMBER', ),
+    'STOCK_COMP': None,
+    'INVOICE_ITEM': ('ITEMID'),
+    'SOP_ITEM': ('ITEMID')
+}
+
 mysql_type_lookup = {
     1: 'varchar',
     4: 'integer',
@@ -65,7 +76,7 @@ pandas_type_lookup = {
     5: 'int64',
     8: 'float64',
     9: 'datetime64[ns]',
-    10: 'datetime64[ns]',
+    10: 'object', # Time
     11: 'datetime64[ns]',
     12: 'object',
     65530: 'int64',
@@ -395,7 +406,9 @@ class Manager(object):
 
         _columns = self._get_columns(connection, table_name)
         _fields = []
+        _primary_keys = []
         for index, _column in enumerate(_columns):
+            _is_in_pk = False
             _field_type = mysql_type_lookup.get(_column.data_type)
             if not _field_type:
                 self.logger.error(f'Field type not found for data type: {_column.data_type}, column: {_column.name}, table: {table_name}')
@@ -406,9 +419,22 @@ class Manager(object):
 
             _column_name = self._safe_name(_column.name)
 
+            _is_pk_field = index == 0
+
+            if table_name in mysql_primary_keys:
+                _pk_fields = mysql_primary_keys[table_name]
+                if _pk_fields is not None:
+                    if _column.name in _pk_fields:
+                        _primary_keys.append(_column_name)
+                        _is_in_pk = True
+            else:
+                if index == 0:
+                    _primary_keys.append(_column_name)
+                    _is_in_pk = True
+
             _fields.append(
                 {
-                    'is_pk': index == 0,
+                    'is_in_pk': _is_in_pk,
                     'type': _field_type,
                     'size': _column.column_size,
                     'name': _column_name,
@@ -421,6 +447,7 @@ class Manager(object):
             'dsn': self.dsn,
             'table_name': _table_name,
             'fields': _fields,
+            'primary_keys': _primary_keys
         }
 
         _template = self.env.get_template('mysql-create.html')
@@ -458,7 +485,7 @@ class Manager(object):
             for index, _column in enumerate(self._get_columns(_connection, _table.name)):
                 _field_type = mysql_type_lookup.get(_column.data_type)
                 _column_name = self._safe_name(_column.name)
-                if _field_type == 'datetime':
+                if _field_type in ['datetime', 'decimal']:
                     _variables.append(_column_name)
                     _column_name = f"@{_column_name}"
 
