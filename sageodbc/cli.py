@@ -390,22 +390,27 @@ def generate_mysql_load_data(manager: Manager, input_directory: str, output_file
         logger.error(ex, exc_info=manager.debug)
 
 
-cli.add_command(about)
-cli.add_command(dump_table)
-cli.add_command(dump_table_schema)
-cli.add_command(dump_table_schemas)
-cli.add_command(dump_table_names)
-cli.add_command(dump_table_counts)
-cli.add_command(dump_table_count)
-cli.add_command(dump_table_rest_schema)
-cli.add_command(dump_table_rest_schemas)
-cli.add_command(dump_table_json_net_schema)
-cli.add_command(dump_table_json_net_schemas)
-cli.add_command(query)
-cli.add_command(query_from_file)
-cli.add_command(query_to_sql)
-cli.add_command(schema_to_mysql_ddl)
-cli.add_command(schemas_to_mysql_ddl)
+commands = [
+    about,
+    dump_table,
+    dump_table_schema,
+    dump_table_schemas,
+    dump_table_names,
+    dump_table_counts,
+    dump_table_count,
+    dump_table_rest_schema,
+    dump_table_rest_schemas,
+    dump_table_json_net_schema,
+    dump_table_json_net_schemas,
+    query,
+    query_from_file,
+    query_to_sql,
+    schema_to_mysql_ddl,
+    schemas_to_mysql_ddl,
+]
+
+for command in commands:
+    cli.add_command(command)
 
 
 def main():
