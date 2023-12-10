@@ -55,7 +55,7 @@ def dump_table(manager: Manager, table_name: str, save_to: str, output_format: O
        SAVE_TO is the name of the file to dump to.
     """
     logger.info(f'Table name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     try:
         manager.dump_table(table_name, save_to, output_format)
@@ -98,7 +98,7 @@ def dump_table_schema(manager: Manager, table_name: str, save_to: str):
     """
 
     logger.info(f'Table name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.dump_table_schema(table_name, save_to)
     except Exception as ex:
@@ -134,7 +134,7 @@ def dump_table_names(manager: Manager, save_to: str):
        SAVE_TO is the name of the file to dump to.
     """
 
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.dump_table_names(save_to)
     except Exception as ex:
@@ -150,7 +150,7 @@ def dump_table_counts(manager: Manager, save_to: str):
        SAVE_TO is the name of the file to dump to.
     """
 
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.dump_table_counts(save_to)
     except Exception as ex:
@@ -187,7 +187,7 @@ def dump_table_rest_schema(manager: Manager, table_name: str, save_to: str):
     """
 
     logger.info(f'Table Name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.dump_table_rest_schema(table_name, save_to)
     except Exception as ex:
@@ -230,7 +230,7 @@ def dump_table_json_net_schema(manager: Manager, table_name: str, namespace: str
     """
 
     logger.info(f'Table Name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.dump_table_json_net_schema(table_name, namespace, save_to)
     except Exception as ex:
@@ -274,7 +274,7 @@ def query(manager: Manager, query: str, save_to: str, output_format: OutputForma
 
     """
     logger.info(f'Query: {query}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     try:
         manager.query(query, save_to, output_format)
@@ -296,7 +296,7 @@ def query_from_file(manager: Manager, query_file: str, save_to: str, output_form
 
     """
     logger.info(f'Query File: {query_file}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     try:
         query_text = Path(query_file).read_text().replace('\n', ' ')
@@ -312,7 +312,7 @@ def query_from_file(manager: Manager, query_file: str, save_to: str, output_form
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @pass_manager
 def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
-    """Execute a Sage query and dump results to an sql INSERT INTO file
+    """Execute a Sage query and dump results to a sql INSERT INTO file
 
         QUERY: the query to execute a
 
@@ -323,7 +323,7 @@ def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
     """
     logger.info(f'Query: {query}')
     logger.info(f'Table Name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.query_to_sql(query, table_name, save_to)
     except Exception as ex:
@@ -335,16 +335,14 @@ def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @pass_manager
 def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
-    """Create a MySQL file
+    """Create a MySQL DDL schema file for a table
 
        TABLE_NAME is the name of the table.
-
-       NAMESPACE is the namespace of c# class.
 
        SAVE_TO is the name of the file to dump to.
     """
     logger.info(f'Table Name: {table_name}')
-    logger.info(f'Output file: {save_to}')
+    logger.info(f'Save to file: {save_to}')
     try:
         manager.schema_to_mysql_ddl(table_name, save_to)
     except Exception as ex:
@@ -355,13 +353,11 @@ def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @pass_manager
 def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
-    """Create a MySQL  file
+    """Create MySQL DDL schema files for all tables
 
-       TABLE_NAME is the name of the table.
+       Filenames are snake-cased, lower-cased table name .sql extension
 
-       NAMESPACE is the namespace of c# class.
-
-       SAVE_TO is the name of the file to dump to.
+       OUTPUT_DIRECTORY is the name of the directory to dump to.
     """
     logger.info(f'Output Directory: {output_directory}')
     try:
@@ -371,21 +367,19 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
 
 @cli.command('generate-mysql-load-data')
 @click.argument('input-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
-@click.argument('output-filename', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
+@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
 @pass_manager
-def generate_mysql_load_data(manager: Manager, input_directory: str, output_filename: str):
-    """Create a MySQL  file
+def generate_mysql_load_data(manager: Manager, input_directory: str, save_to: str):
+    """Creates a MySQL sql file to load multiple sql insert files
 
-       TABLE_NAME is the name of the table.
-
-       NAMESPACE is the namespace of c# class.
+       INPUT_DIRECTORY is the directory containing the insert .sql files
 
        SAVE_TO is the name of the file to dump to.
     """
     logger.info(f'Input Directory: {input_directory}')
-    logger.info(f'Output Filename: {output_filename}')
+    logger.info(f'Save to file: {save_to}')
     try:
-        manager.generate_mysql_load_data(input_directory, output_filename)
+        manager.generate_mysql_load_data(input_directory, save_to)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 
