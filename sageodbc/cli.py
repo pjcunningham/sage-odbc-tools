@@ -365,6 +365,7 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 
+
 @cli.command('generate-mysql-load-data')
 @click.argument('input-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
