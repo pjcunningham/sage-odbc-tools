@@ -97,7 +97,6 @@ class Manager(object):
         self.logger.info(f'Sage DSN:{sage_odbc_dsn}')
         self.logger.info(f'Sage Username:{sage_username}')
 
-
     def get_connection(self):
         if self.connection:
             return self.connection
@@ -148,7 +147,6 @@ class Manager(object):
             dataframe.to_xml(output_filename, index=False)
         else:
             raise Exception(f'Don'f't know how to output {output_format} format')
-
 
     def _internal_dump_table(self, connection, table_name, output_filename, output_format):
         _types = self._internal_table_pandas_datatypes(connection, table_name)
@@ -286,8 +284,8 @@ class Manager(object):
 
     def dump_table_names(self, output_filename: str):
         _connection = self.get_connection()
+        _cursor = _connection.cursor()
         try:
-            _cursor = _connection.cursor()
             _table_rows = [table_name for table_name in _cursor.tables()]
             _table_rows.sort(key=lambda name: name)
             _tables = [Table.from_row(t) for t in _table_rows]
@@ -298,8 +296,8 @@ class Manager(object):
 
     def dump_table_counts(self, output_filename: str):
         _connection = self.get_connection()
+        _cursor = _connection.cursor()
         try:
-            _cursor = _connection.cursor()
             _table_rows = [table_name for table_name in _cursor.tables()]
             _table_rows.sort(key=lambda name: name)
             _tables = [Table.from_row(t) for t in _table_rows]
@@ -314,8 +312,8 @@ class Manager(object):
 
     def dump_table_count(self, table_name: str):
         _connection = self.get_connection()
+        _cursor = _connection.cursor()
         try:
-            _cursor = _connection.cursor()
             _tables = self._get_tables(_connection)
             if table_name not in [t.name for t in _tables]:
                 raise Exception(f'Table {table_name} does not exist.')
@@ -399,7 +397,6 @@ class Manager(object):
 
         return _name
 
-
     def _internal_schema_to_mysql_ddl(self, connection, table_name: str, output_filename: str):
 
         _table_name = self._safe_name(table_name)
@@ -470,7 +467,6 @@ class Manager(object):
             _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
             self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
 
-
     def generate_mysql_load_data(self, input_directory: str, output_filename: str):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
@@ -505,4 +501,3 @@ class Manager(object):
             f.write(_template.render(tables=tables))
 
         self.logger.info(f'outputted load data file to: {output_filename} ')
-
