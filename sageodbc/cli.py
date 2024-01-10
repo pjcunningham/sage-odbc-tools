@@ -305,7 +305,6 @@ def query_from_file(manager: Manager, query_file: str, save_to: str, output_form
         logger.error(ex, exc_info=manager.debug)
 
 
-
 @cli.command('query-to-sql')
 @click.argument('query', type=str)
 @click.argument('table_name', type=str)
