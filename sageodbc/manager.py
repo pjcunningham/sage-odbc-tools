@@ -51,7 +51,9 @@ mysql_primary_keys = {
     'AUDIT_VAT': None,
     'AUDIT_USAGE': ('USAGE_NUMBER', ),
     'BANK_STATEMENT_LINE': ('TRAN_NUMBER', ),
+    'CATEGORY': None,
     'CLEARED_TRAN_RANGE': ('START_TRAN_NUMBER', 'END_TRAN_NUMBER'),
+    'FINANCIAL_BUDGET': None,
     'GDN_ITEM': ('GDN_NUMBER', 'ITEM_NUMBER', 'ORDER_NUMBER', 'ORDER_ITEM'),
     'GRN_ITEM': ('GRN_NUMBER', 'ITEM_NUMBER', 'ORDER_NUMBER'),
     'STOCK_COMP': None,
@@ -72,7 +74,7 @@ mysql_type_lookup = {
     12: 'varchar',
     65530: 'integer',
     65534: 'integer',
-    65535: 'varchar',
+    65535: 'text',
 }
 
 
@@ -419,9 +421,6 @@ class Manager(object):
             if not _field_type:
                 self.logger.error(f'Field type not found for data type: {_column.data_type}, column: {_column.name}, table: {table_name}')
                 continue
-
-            if _field_type == 'varchar' and _column.column_size > 255:
-                _field_type = 'text'
 
             _column_name = self._safe_name(_column.name)
 
