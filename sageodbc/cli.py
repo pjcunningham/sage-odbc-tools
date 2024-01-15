@@ -67,7 +67,7 @@ def dump_table(manager: Manager, table_name: str, save_to: str, output_format: O
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
 @pass_manager
-def dump_table(manager: Manager, output_directory: str, output_format: OutputFormatEnum):
+def dump_tables(manager: Manager, output_directory: str, output_format: OutputFormatEnum):
     """Dump all Sage tables data to a directory using a given format
 
        Each table is saved to an individual file in the OUTPUT_DIRECTORY
