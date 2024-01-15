@@ -484,12 +484,15 @@ class Manager(object):
         with open(_schema_load_output_filename, 'w') as f:
             f.write(_template.render(schema_files=_schema_files))
 
-    def generate_mysql_load_data(self, input_directory: str, output_filename: str):
+    def generate_mysql_load_data(self, input_directory: str, output_filename: str, exclude_tables: list[str]):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
 
         tables = []
         for _table in _tables:
+            if _table in exclude_tables:
+                self.logger.info(f"Table {_table} has been excluded.")
+                continue
             _safe_table_name = self._safe_name(_table.name)
             _load_data_filename = op.join(input_directory, f'{snake_case(_table.name).lower()}.csv').replace('\\', '/')
 

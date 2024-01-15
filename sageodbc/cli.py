@@ -370,20 +370,23 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
 
 
 @cli.command('generate-mysql-load-data')
+@click.option('--exclude-table', '-et', type=str, multiple=True)
 @click.argument('input-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
 @pass_manager
-def generate_mysql_load_data(manager: Manager, input_directory: str, save_to: str):
+def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_directory: str, save_to: str):
     """Creates a MySQL sql file to load multiple sql insert files
 
        INPUT_DIRECTORY is the directory containing the insert .sql files
 
        SAVE_TO is the name of the file to dump to.
     """
+    for table in exclude_table:
+        logger.info(f'Exclude table: {table}')
     logger.info(f'Input Directory: {input_directory}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.generate_mysql_load_data(input_directory, save_to)
+        manager.generate_mysql_load_data(input_directory, save_to, exclude_table)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 
