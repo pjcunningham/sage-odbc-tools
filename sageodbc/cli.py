@@ -43,11 +43,12 @@ def about():
 
 
 @cli.command('dump-table')
+@click.option('--include-deleted/--no-include-deleted', default=False)
 @click.argument('table-name', type=str)
 @click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
 @click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
 @pass_manager
-def dump_table(manager: Manager, table_name: str, save_to: str, output_format: OutputFormatEnum):
+def dump_table(manager: Manager, include_deleted: bool, table_name: str, save_to: str, output_format: OutputFormatEnum):
     """Dump a Sage table's data to file using a given format
 
        TABLE_NAME is the name of the table to dump.
@@ -57,17 +58,19 @@ def dump_table(manager: Manager, table_name: str, save_to: str, output_format: O
     logger.info(f'Table name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
+    logger.info(f'Include Deleted: {include_deleted}')
     try:
-        manager.dump_table(table_name, save_to, output_format)
+        manager.dump_table(table_name, save_to, output_format, include_deleted)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 
 
 @cli.command('dump-tables')
+@click.option('--include-deleted/--no-include-deleted', default=False)
 @click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
 @click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
 @pass_manager
-def dump_tables(manager: Manager, output_directory: str, output_format: OutputFormatEnum):
+def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, output_format: OutputFormatEnum):
     """Dump all Sage tables data to a directory using a given format
 
        Each table is saved to an individual file in the OUTPUT_DIRECTORY
@@ -79,8 +82,9 @@ def dump_tables(manager: Manager, output_directory: str, output_format: OutputFo
 
     logger.info(f'Output directory: {output_directory}')
     logger.info(f'Output format: {output_format}')
+    logger.info(f'Include Deleted: {include_deleted}')
     try:
-        manager.dump_tables(output_directory, output_format)
+        manager.dump_tables(output_directory, output_format, include_deleted)
     except Exception as ex:
         logger.error(ex, exc_info=manager.debug)
 

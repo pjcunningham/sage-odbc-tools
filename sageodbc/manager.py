@@ -154,9 +154,12 @@ class Manager(object):
         else:
             raise Exception(f'Don'f't know how to output {output_format} format')
 
-    def _internal_dump_table(self, connection, table_name, output_filename, output_format):
+    def _internal_dump_table(self, connection, table_name, output_filename, output_format, include_deleted):
         _types = self._internal_table_pandas_datatypes(connection, table_name)
-        _query = f'select * from {table_name}'
+        if include_deleted:
+            _query = f'select * from {table_name}'
+        else:
+            _query = f'select * from {table_name} where RECORD_DELETED = 0'
         try:
             self.logger.info(f'Running query: {_query}')
             _df = pd.io.sql.read_sql(_query, connection, dtype=_types)
@@ -260,19 +263,19 @@ class Manager(object):
 
         self.logger.info(f'outputted table {table_name} schema to: {output_filename} ')
 
-    def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum):
+    def dump_table(self, table_name: str, output_filename: str, output_format: OutputFormatEnum, include_deleted: bool):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         if table_name not in [t.name for t in _tables]:
             raise Exception(f'Table {table_name} does not exist.')
-        self._internal_dump_table(_connection, table_name, output_filename, output_format)
+        self._internal_dump_table(_connection, table_name, output_filename, output_format, include_deleted)
 
-    def dump_tables(self, output_directory: str, output_format: OutputFormatEnum):
+    def dump_tables(self, output_directory: str, output_format: OutputFormatEnum, include_deleted: bool):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
             _output_filename = path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
-            self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
+            self._internal_dump_table(_connection, _table.name, _output_filename, output_format, include_deleted)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
         _connection = self.get_connection()
