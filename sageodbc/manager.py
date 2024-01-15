@@ -2,7 +2,7 @@
 __author__ = 'Paul Cunningham'
 __copyright = 'Copyright 2021, Paul Cunningham'
 
-import os
+import os.path as op
 from datetime import datetime
 from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -274,7 +274,7 @@ class Manager(object):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
-            _output_filename = path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
+            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
             self._internal_dump_table(_connection, _table.name, _output_filename, output_format, include_deleted)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
@@ -288,7 +288,7 @@ class Manager(object):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
-            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
+            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
             self._internal_dump_table_schema(_connection, _table.name, _output_filename)
 
     def dump_table_names(self, output_filename: str):
@@ -343,7 +343,7 @@ class Manager(object):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
-            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.py')
+            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.py')
             self._internal_dump_table_rest_schema(_connection, _table.name, _output_filename)
 
     def query(self, query: str, output_filename: str, output_format: OutputFormatEnum):
@@ -395,7 +395,7 @@ class Manager(object):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
-            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
+            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
             self._internal_dump_table_json_net_schema(_connection, _table.name, namespace,  _output_filename)
 
     def _safe_name(self, name):
@@ -474,11 +474,11 @@ class Manager(object):
         _tables = self._get_tables(_connection)
         _schema_files = []
         for _table in _tables:
-            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
+            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
             _schema_files.append(_output_filename.replace('\\', '/'))
             self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
 
-        _schema_load_output_filename = os.path.join(output_directory, '_mysql_load_schemas.sql')
+        _schema_load_output_filename = op.join(output_directory, '_mysql_load_schemas.sql')
         _template = self.env.get_template('mysql-load-schemas.html')
         with open(_schema_load_output_filename, 'w') as f:
             f.write(_template.render(schema_files=_schema_files))
@@ -490,7 +490,7 @@ class Manager(object):
         tables = []
         for _table in _tables:
             _safe_table_name = self._safe_name(_table.name)
-            _load_data_filename = os.path.join(input_directory, f'{snake_case(_table.name).lower()}.csv').replace('\\', '/')
+            _load_data_filename = op.join(input_directory, f'{snake_case(_table.name).lower()}.csv').replace('\\', '/')
 
             _fields = []
             _variables = []
