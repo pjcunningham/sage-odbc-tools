@@ -2,7 +2,7 @@
 __author__ = 'Paul Cunningham'
 __copyright = 'Copyright 2021, Paul Cunningham'
 
-import os.path
+import os
 from datetime import datetime
 from logging import Logger
 from jinja2 import Environment, FileSystemLoader, select_autoescape
@@ -50,9 +50,14 @@ mysql_primary_keys = {
     'AUDIT_JOURNAL': None,
     'AUDIT_VAT': None,
     'AUDIT_USAGE': ('USAGE_NUMBER', ),
+    'CLEARED_TRAN_RANGE': ('START_TRAN_NUMBER', 'END_TRAN_NUMBER'),
+    'GDN_ITEM': ('GDN_NUMBER', 'ITEM_NUMBER', 'ORDER_NUMBER', 'ORDER_ITEM'),
+    'GRN_ITEM': ('GRN_NUMBER', 'ITEM_NUMBER', 'ORDER_NUMBER'),
     'STOCK_COMP': None,
-    'INVOICE_ITEM': ('ITEMID'),
-    'SOP_ITEM': ('ITEMID')
+    'INVOICE_ITEM': ('ITEMID', ),
+    'SOP_ITEM': ('ITEMID', ),
+    'POP_ITEM': ('ITEMID', ),
+    'PRICE_LIST': ('PRICING_REF', ),
 }
 
 mysql_type_lookup = {
@@ -265,7 +270,7 @@ class Manager(object):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         for _table in _tables:
-            _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
+            _output_filename = path.join(output_directory, f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
             self._internal_dump_table(_connection, _table.name, _output_filename, output_format)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
@@ -463,9 +468,16 @@ class Manager(object):
     def schemas_to_mysql_ddl(self, output_directory: str):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
+        _schema_files = []
         for _table in _tables:
             _output_filename = os.path.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
+            _schema_files.append(_output_filename.replace('\\', '/'))
             self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
+
+        _schema_load_output_filename = os.path.join(output_directory, '_mysql_load_schemas.sql')
+        _template = self.env.get_template('mysql-load-schemas.html')
+        with open(_schema_load_output_filename, 'w') as f:
+            f.write(_template.render(schema_files=_schema_files))
 
     def generate_mysql_load_data(self, input_directory: str, output_filename: str):
         _connection = self.get_connection()
