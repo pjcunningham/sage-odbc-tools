@@ -69,7 +69,7 @@ mysql_type_lookup = {
     1: 'varchar',
     4: 'integer',
     5: 'integer',
-    8: 'decimal',
+    8: 'decimal (40, 10)',
     9: 'datetime',
     10: 'datetime',
     11: 'datetime',
