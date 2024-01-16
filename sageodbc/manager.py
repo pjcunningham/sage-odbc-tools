@@ -302,8 +302,10 @@ class Manager(object):
             _table_rows = [table_name for table_name in _cursor.tables()]
             _table_rows.sort(key=lambda name: name)
             _tables = [Table.from_row(t) for t in _table_rows]
-            for _table in _tables:
-                self.logger.info(_table.name)
+            with open(output_filename, 'w') as f:
+                for _table in _tables:
+                    f.write(f'{_table.name}\n')
+                    self.logger.info(_table.name)
         finally:
             _cursor.close()
 
@@ -490,7 +492,7 @@ class Manager(object):
 
         tables = []
         for _table in _tables:
-            if _table in exclude_tables:
+            if _table.name in exclude_tables:
                 self.logger.info(f"Table {_table} has been excluded.")
                 continue
             _safe_table_name = self._safe_name(_table.name)
