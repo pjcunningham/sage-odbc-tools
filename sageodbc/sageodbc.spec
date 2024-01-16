@@ -6,7 +6,7 @@ block_cipher = None
 a = Analysis(['cli.py'],
              pathex=['D:\\Paul\\Documents\\GitHub\\sage-odbc\\sageodbc'],
              binaries=None,
-             datas=[('cacert.pem', '.')],
+             datas=[('cacert.pem', '.'), ('templates/*', 'templates')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
@@ -14,6 +14,7 @@ a = Analysis(['cli.py'],
              win_no_prefer_redirects=False,
              win_private_assemblies=False,
              cipher=block_cipher)
+
 pyz = PYZ(a.pure, a.zipped_data,
              cipher=block_cipher)
 exe = EXE(pyz,

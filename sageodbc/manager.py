@@ -2,6 +2,7 @@
 __author__ = 'Paul Cunningham'
 __copyright = 'Copyright 2021, Paul Cunningham'
 
+import sys
 import os.path as op
 from datetime import datetime
 from logging import Logger
@@ -13,6 +14,12 @@ from stringutils import snake_case, pascal_case, title_case
 import pandas as pd
 from models import OutputFormatEnum, Column, Table
 from helpers import mysql_keywords
+
+
+def resource_path(relative_path: str):
+    if hasattr(sys, '_MEIPASS'):
+        return op.join(sys._MEIPASS, relative_path)
+    return op.join(op.abspath("."), relative_path)
 
 
 data_type_lookup = {
@@ -103,7 +110,7 @@ class Manager(object):
         self.dsn = sage_odbc_dsn
         self.connection_string = f'DSN={sage_odbc_dsn};UID={sage_username};PWD={sage_password}'
         self.debug = debug
-        self.env = Environment(loader=FileSystemLoader("templates"), autoescape=select_autoescape())
+        self.env = Environment(loader=FileSystemLoader(resource_path("templates")), autoescape=select_autoescape())
         self.logger.info(f'Sage DSN:{sage_odbc_dsn}')
         self.logger.info(f'Sage Username:{sage_username}')
 
