@@ -12,8 +12,8 @@ import pyodbc
 import re
 from stringutils import snake_case, pascal_case, title_case
 import pandas as pd
-from models import OutputFormatEnum, Column, Table
-from helpers import mysql_keywords
+from .models import OutputFormatEnum, Column, Table
+from .helpers import mysql_keywords
 
 
 def resource_path(relative_path: str):

@@ -8,9 +8,9 @@ from dotenv import dotenv_values
 from pathlib import Path
 import click
 import click_log
-from version import __version__
-from manager import Manager
-from models import OutputFormatEnum, OutputFormatType
+from .version import __version__
+from .manager import Manager
+from .models import OutputFormatEnum, OutputFormatType
 
 
 logger = logging.getLogger(__name__)
