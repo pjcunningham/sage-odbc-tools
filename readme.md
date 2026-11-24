@@ -2,6 +2,8 @@
 
 A command-line tool for extracting data and schemas from Sage Line 50 through an ODBC connection.
 
+Use it to create repeatable snapshots of Sage tables, detect schema changes between exports, and generate application schemas or MySQL DDL and load scripts. Export the results of custom queries as CSV, JSON, Excel, or XML for reporting and analysis, or use the generated files to support integrations, backups, and migrations to other systems.
+
 ## Requirements and configuration
 
 - Python 3.12 or later.
