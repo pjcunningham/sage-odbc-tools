@@ -44,6 +44,12 @@ def _handle_command_error(error, manager):
     raise click.ClickException(message) from error
 
 
+def _call_with_progress(progress, function, *args, **kwargs):
+    if progress:
+        kwargs['progress'] = click.progressbar
+    return function(*args, **kwargs)
+
+
 def _get_manager(ctx):
     root_context = ctx.find_root()
     options = root_context.obj
@@ -155,10 +161,12 @@ def dump_table(manager: Manager, include_deleted: bool, table_name: str, save_to
 
 @cli.command('dump-tables')
 @click.option('--include-deleted/--no-include-deleted', default=False)
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
 @click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
-def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, output_format: OutputFormatEnum):
+def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, output_format: OutputFormatEnum,
+                progress: bool):
     """Dump all Sage tables data to a directory using a given format
 
        Each table is saved to an individual file in the OUTPUT_DIRECTORY
@@ -172,7 +180,7 @@ def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, 
     logger.info(f'Output format: {output_format}')
     logger.info(f'Include Deleted: {include_deleted}')
     try:
-        manager.dump_tables(output_directory, output_format, include_deleted)
+        _call_with_progress(progress, manager.dump_tables, output_directory, output_format, include_deleted)
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -197,8 +205,9 @@ def dump_table_schema(manager: Manager, table_name: str, save_to: str):
 
 @cli.command('dump-table-schemas')
 @click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def dump_table_schemas(manager: Manager, output_directory: str):
+def dump_table_schemas(manager: Manager, output_directory: str, progress: bool):
     """Dump all Sage table schemas to a directory
 
        Each table is saved to an individual text file in the OUTPUT_DIRECTORY
@@ -210,7 +219,7 @@ def dump_table_schemas(manager: Manager, output_directory: str):
 
     logger.info(f'Output Directory: {output_directory}')
     try:
-        manager.dump_table_schemas(output_directory)
+        _call_with_progress(progress, manager.dump_table_schemas, output_directory)
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -226,7 +235,8 @@ def dump_table_schemas(manager: Manager, output_directory: str):
 )
 @click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
 @click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
-def compare_schemas(left_path: Path, right_path: Path, output_format: OutputFormatEnum, save_to: str):
+@click.option('--progress', is_flag=True, help='Show progress as schema files are compared.')
+def compare_schemas(left_path: Path, right_path: Path, output_format: OutputFormatEnum, save_to: str, progress: bool):
     """Compare schema text files or common .txt files in two directories.
 
        Differences are written to stdout or a file in the selected format.
@@ -237,6 +247,7 @@ def compare_schemas(left_path: Path, right_path: Path, output_format: OutputForm
             left_path,
             right_path,
             output_path=None if save_to == '-' else save_to,
+            progress=click.progressbar if progress else None,
         )
         dataframe = prepare_schema_diff_output(dataframe, output_format)
         _write_text_output(
@@ -264,13 +275,17 @@ def dump_table_names(manager: Manager, save_to: str):
 
 @cli.command('dump-table-counts')
 @click.option('-o', '--output', 'save_to', type=click.Path(exists=False), default='-', show_default=True)
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def dump_table_counts(manager: Manager, save_to: str):
+def dump_table_counts(manager: Manager, save_to: str, progress: bool):
     """Dump all Sage table counts to stdout or a file."""
 
     logger.info(f'Save to file: {save_to}')
     try:
-        _write_text_output(save_to, manager.dump_table_counts)
+        _write_text_output(
+            save_to,
+            lambda output: _call_with_progress(progress, manager.dump_table_counts, output),
+        )
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -312,8 +327,9 @@ def dump_table_rest_schema(manager: Manager, table_name: str, save_to: str):
 
 @cli.command('dump-table-rest-schemas')
 @click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def dump_table_rest_schemas(manager: Manager, output_directory: str):
+def dump_table_rest_schemas(manager: Manager, output_directory: str, progress: bool):
     """Create a flask-rest-jsonapi schema file for all Sage tables
 
        Each table is saved to an individual python file in the OUTPUT_DIRECTORY
@@ -325,7 +341,7 @@ def dump_table_rest_schemas(manager: Manager, output_directory: str):
 
     logger.info(f'Output Directory: {output_directory}')
     try:
-        manager.dump_table_rest_schemas(output_directory)
+        _call_with_progress(progress, manager.dump_table_rest_schemas, output_directory)
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -354,8 +370,9 @@ def dump_table_json_net_schema(manager: Manager, table_name: str, namespace: str
 @cli.command('dump-table-json-net-schemas')
 @click.argument('namespace', type=str)
 @click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directory: str):
+def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directory: str, progress: bool):
     """Create a JSON.NET schema file for all Sage tables
 
        Each table is saved to an individual c# file in the OUTPUT_DIRECTORY
@@ -369,7 +386,7 @@ def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directo
 
     logger.info(f'Output Directory: {output_directory}')
     try:
-        manager.dump_table_json_net_schemas(namespace, output_directory)
+        _call_with_progress(progress, manager.dump_table_json_net_schemas, namespace, output_directory)
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -468,8 +485,9 @@ def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
 
 @cli.command('schemas-to-mysql-ddl')
 @click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
+def schemas_to_mysql_ddl(manager: Manager, output_directory: str, progress: bool):
     """Create MySQL DDL schema files for all tables
 
        Filenames are snake-cased, lower-cased table name .sql extension
@@ -478,7 +496,7 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
     """
     logger.info(f'Output Directory: {output_directory}')
     try:
-        manager.schemas_to_mysql_ddl(output_directory)
+        _call_with_progress(progress, manager.schemas_to_mysql_ddl, output_directory)
     except Exception as ex:
         _handle_command_error(ex, manager)
 
@@ -487,8 +505,10 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
 @click.option('--exclude-table', '-et', type=str, multiple=True)
 @click.option('--input-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
+@click.option('--progress', is_flag=True, help='Show progress as tables are processed.')
 @pass_manager
-def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_directory: str, save_to: str):
+def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_directory: str, save_to: str,
+                             progress: bool):
     """Creates a MySQL sql file to load multiple sql insert files
 
        INPUT_DIRECTORY is the directory containing the insert .sql files
@@ -502,7 +522,9 @@ def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_d
     try:
         _write_text_output(
             save_to,
-            lambda output: manager.generate_mysql_load_data(input_directory, output, exclude_table),
+            lambda output: _call_with_progress(
+                progress, manager.generate_mysql_load_data, input_directory, output, exclude_table
+            ),
             suffix='.sql',
         )
     except Exception as ex:

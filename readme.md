@@ -45,6 +45,8 @@ In the syntax below, `FORMAT` is one of `csv`, `json`, `xlsx`, or `xml` (case-in
 
 Output data is written to stdout and diagnostics to stderr. Commands return a nonzero exit status for usage, configuration, or database errors.
 
+The bulk commands `dump-tables`, `dump-table-counts`, `dump-table-schemas`, `dump-table-rest-schemas`, `dump-table-json-net-schemas`, `schemas-to-mysql-ddl`, and `generate-mysql-load-data`, as well as directory comparisons with `compare-schemas`, accept `--progress` to show completed tables or schema-file pairs. Progress is written to stderr and Click hides the bar when stderr is not a terminal; it does not change command output. Excluded tables are not counted by `generate-mysql-load-data`.
+
 ### Data export and table information
 
 | Command | What it does |

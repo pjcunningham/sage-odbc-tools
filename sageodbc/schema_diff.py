@@ -6,6 +6,7 @@ from pathlib import Path
 import pandas as pd
 
 from .models import Column, OutputFormatEnum
+from .progress import progress_items
 
 
 _COLUMN_FIELDS = tuple(field.name for field in fields(Column))
@@ -99,7 +100,7 @@ def _compare_file_pair(left_path, right_path, rows):
                 )
 
 
-def compare_schema_paths(left_path, right_path, output_path=None):
+def compare_schema_paths(left_path, right_path, output_path=None, progress=None):
     left_path = Path(left_path)
     right_path = Path(right_path)
     pairs = _file_pairs(left_path, right_path)
@@ -111,8 +112,9 @@ def compare_schema_paths(left_path, right_path, output_path=None):
                 raise ValueError('Output path must not overwrite a compared input file.')
 
     rows = []
-    for left_file, right_file in pairs:
-        _compare_file_pair(left_file, right_file, rows)
+    with progress_items(pairs, progress, 'Comparing schema files') as progress_pairs:
+        for left_file, right_file in progress_pairs:
+            _compare_file_pair(left_file, right_file, rows)
 
     return pd.DataFrame(rows, columns=DIFF_COLUMNS).astype({
         'left_line': 'Int64',

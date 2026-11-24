@@ -14,6 +14,7 @@ from . import exports
 from . import generators
 from .database import Database
 from .models import OutputFormatEnum, Table
+from .progress import progress_items
 
 
 def resource_path(relative_path: str):
@@ -110,25 +111,28 @@ class Manager(object):
         self._get_table(_connection, table_name)
         self._internal_dump_table(_connection, table_name, output_filename, output_format, include_deleted)
 
-    def dump_tables(self, output_directory: str, output_format: OutputFormatEnum, include_deleted: bool):
+    def dump_tables(self, output_directory: str, output_format: OutputFormatEnum, include_deleted: bool,
+                    progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
-        for _table in _tables:
-            _output_filename = op.join(output_directory,
-                                       f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
-            self._internal_dump_table(_connection, _table.name, _output_filename, output_format, include_deleted)
+        with progress_items(_tables, progress, 'Dumping tables') as _progress_tables:
+            for _table in _progress_tables:
+                _output_filename = op.join(output_directory,
+                                           f'{snake_case(_table.name).lower()}.{str(output_format).lower()}')
+                self._internal_dump_table(_connection, _table.name, _output_filename, output_format, include_deleted)
 
     def dump_table_schema(self, table_name: str, output_filename: str):
         _connection = self.get_connection()
         self._get_table(_connection, table_name)
         self._internal_dump_table_schema(_connection, table_name, output_filename)
 
-    def dump_table_schemas(self, output_directory: str):
+    def dump_table_schemas(self, output_directory: str, progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
-        for _table in _tables:
-            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
-            self._internal_dump_table_schema(_connection, _table.name, _output_filename)
+        with progress_items(_tables, progress, 'Dumping table schemas') as _progress_tables:
+            for _table in _progress_tables:
+                _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.txt')
+                self._internal_dump_table_schema(_connection, _table.name, _output_filename)
 
     def dump_table_names(self, output_filename: str):
         _connection = self.get_connection()
@@ -141,18 +145,19 @@ class Manager(object):
                     f.write(f'{_table.name}\n')
                     self.logger.info(_table.name)
 
-    def dump_table_counts(self, output_filename: str):
+    def dump_table_counts(self, output_filename: str, progress=None):
         _connection = self.get_connection()
         with closing(_connection.cursor()) as _cursor:
             _table_rows = [table_name for table_name in _cursor.tables()]
             _table_rows.sort(key=lambda name: name)
             _tables = [Table.from_row(t) for t in _table_rows]
             with open(output_filename, 'w') as f:
-                for _table in _tables:
-                    _count = _cursor.execute(f"select count(*) from {_table.name}").fetchone()
-                    _output = f'{_table.name}:{_count[0]}'  # _count is a tuple
-                    self.logger.info(_output)
-                    f.write(f'{_output}\n')
+                with progress_items(_tables, progress, 'Counting tables') as _progress_tables:
+                    for _table in _progress_tables:
+                        _count = _cursor.execute(f"select count(*) from {_table.name}").fetchone()
+                        _output = f'{_table.name}:{_count[0]}'  # _count is a tuple
+                        self.logger.info(_output)
+                        f.write(f'{_output}\n')
 
     def dump_table_count(self, table_name: str):
         _connection = self.get_connection()
@@ -167,12 +172,13 @@ class Manager(object):
         self._get_table(_connection, table_name)
         self._internal_dump_table_rest_schema(_connection, table_name, output_filename)
 
-    def dump_table_rest_schemas(self, output_directory: str):
+    def dump_table_rest_schemas(self, output_directory: str, progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
-        for _table in _tables:
-            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.py')
-            self._internal_dump_table_rest_schema(_connection, _table.name, _output_filename)
+        with progress_items(_tables, progress, 'Dumping REST schemas') as _progress_tables:
+            for _table in _progress_tables:
+                _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.py')
+                self._internal_dump_table_rest_schema(_connection, _table.name, _output_filename)
 
     def query(self, query: str, output_filename: str, output_format: OutputFormatEnum):
         _connection = self.get_connection()
@@ -189,12 +195,13 @@ class Manager(object):
         self._get_table(_connection, table_name)
         self._internal_dump_table_json_net_schema(_connection, table_name, namespace, output_filename)
 
-    def dump_table_json_net_schemas(self, namespace: str, output_directory: str):
+    def dump_table_json_net_schemas(self, namespace: str, output_directory: str, progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
-        for _table in _tables:
-            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
-            self._internal_dump_table_json_net_schema(_connection, _table.name, namespace, _output_filename)
+        with progress_items(_tables, progress, 'Dumping JSON.NET schemas') as _progress_tables:
+            for _table in _progress_tables:
+                _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.cs')
+                self._internal_dump_table_json_net_schema(_connection, _table.name, namespace, _output_filename)
 
     def _safe_name(self, name):
         return generators.safe_mysql_name(name)
@@ -211,19 +218,21 @@ class Manager(object):
         self._get_table(_connection, table_name)
         self._internal_schema_to_mysql_ddl(_connection, table_name, output_filename)
 
-    def schemas_to_mysql_ddl(self, output_directory: str):
+    def schemas_to_mysql_ddl(self, output_directory: str, progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
-        for _table in _tables:
-            _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
-            self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
+        with progress_items(_tables, progress, 'Generating MySQL schemas') as _progress_tables:
+            for _table in _progress_tables:
+                _output_filename = op.join(output_directory, f'{snake_case(_table.name).lower()}.sql')
+                self._internal_schema_to_mysql_ddl(_connection, _table.name, _output_filename)
 
         _schema_load_output_filename = op.join(output_directory, '_mysql_load_schemas.sql')
         generators.write_mysql_schema_loader(
             _tables, output_directory, self.env, _schema_load_output_filename
         )
 
-    def generate_mysql_load_data(self, input_directory: str, output_filename: str, exclude_tables: list[str]):
+    def generate_mysql_load_data(self, input_directory: str, output_filename: str, exclude_tables: list[str],
+                                 progress=None):
         _connection = self.get_connection()
         _tables = self._get_tables(_connection)
         generators.generate_mysql_load_data(
@@ -234,6 +243,7 @@ class Manager(object):
             exclude_tables,
             self.env,
             self.logger,
+            progress=progress,
         )
 
         self.logger.info(f'outputted load data file to: {output_filename} ')

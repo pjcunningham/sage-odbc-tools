@@ -10,6 +10,7 @@ import pandas as pd
 from stringutils import pascal_case, snake_case, title_case
 
 from .helpers import mysql_keywords
+from .progress import progress_items
 
 data_type_lookup = {
     1: 'fields.Str',
@@ -350,39 +351,43 @@ def write_mysql_schema_loader(tables, output_directory, environment, output_file
 
 
 def generate_mysql_load_data(tables, get_columns, input_directory, output_filename, exclude_tables, environment,
-                             logger):
+                             logger, progress=None):
     load_tables = []
+    included_tables = []
     for table in tables:
         if table.name in exclude_tables:
             logger.info(f'Table {table} has been excluded.')
-            continue
+        else:
+            included_tables.append(table)
 
-        filename = op.join(input_directory, f'{snake_case(table.name).lower()}.csv').replace('\\', '/')
-        fields = []
-        variables = []
-        for index, column in enumerate(get_columns(table.name), start=1):
-            field_type = mysql_type_lookup.get(column.data_type)
-            column_name = safe_mysql_name(column.name)
-            if field_type in ('datetime', 'decimal (40, 10)'):
-                variable = f'@sageodbc_{index}'
-                fields.append(variable)
-                variables.append(
-                    {
-                        'column': quote_mysql_identifier(column_name),
-                        'variable': variable,
-                    }
-                )
-            else:
-                fields.append(quote_mysql_identifier(column_name))
+    with progress_items(included_tables, progress, 'Generating MySQL load data') as progress_tables:
+        for table in progress_tables:
+            filename = op.join(input_directory, f'{snake_case(table.name).lower()}.csv').replace('\\', '/')
+            fields = []
+            variables = []
+            for index, column in enumerate(get_columns(table.name), start=1):
+                field_type = mysql_type_lookup.get(column.data_type)
+                column_name = safe_mysql_name(column.name)
+                if field_type in ('datetime', 'decimal (40, 10)'):
+                    variable = f'@sageodbc_{index}'
+                    fields.append(variable)
+                    variables.append(
+                        {
+                            'column': quote_mysql_identifier(column_name),
+                            'variable': variable,
+                        }
+                    )
+                else:
+                    fields.append(quote_mysql_identifier(column_name))
 
-        load_tables.append(
-            {
-                'path': mysql_string_literal(filename),
-                'name': quote_mysql_identifier(safe_mysql_name(table.name)),
-                'columns': fields,
-                'variables': variables,
-            }
-        )
+            load_tables.append(
+                {
+                    'path': mysql_string_literal(filename),
+                    'name': quote_mysql_identifier(safe_mysql_name(table.name)),
+                    'columns': fields,
+                    'variables': variables,
+                }
+            )
 
     template = environment.get_template('mysql-load-data.html')
     with open(output_filename, 'w', encoding='utf-8', newline='\n') as output_file:
