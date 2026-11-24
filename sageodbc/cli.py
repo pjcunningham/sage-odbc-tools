@@ -14,8 +14,10 @@ import click
 import click_log
 from dotenv import dotenv_values
 
+from .exports import write_dataframe
 from .manager import Manager
 from .models import OutputFormatEnum, OutputFormatType
+from .schema_diff import compare_schema_paths, prepare_schema_diff_output
 from .version import __version__
 
 logger = logging.getLogger(__name__)
@@ -211,6 +213,40 @@ def dump_table_schemas(manager: Manager, output_directory: str):
         manager.dump_table_schemas(output_directory)
     except Exception as ex:
         _handle_command_error(ex, manager)
+
+
+@cli.command('compare-schemas')
+@click.argument(
+    'left_path',
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, readable=True, path_type=Path),
+)
+@click.argument(
+    'right_path',
+    type=click.Path(exists=True, file_okay=True, dir_okay=True, readable=True, path_type=Path),
+)
+@click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
+def compare_schemas(left_path: Path, right_path: Path, output_format: OutputFormatEnum, save_to: str):
+    """Compare schema text files or common .txt files in two directories.
+
+       Differences are written to stdout or a file in the selected format.
+       XLSX output requires --output.
+    """
+    try:
+        dataframe = compare_schema_paths(
+            left_path,
+            right_path,
+            output_path=None if save_to == '-' else save_to,
+        )
+        dataframe = prepare_schema_diff_output(dataframe, output_format)
+        _write_text_output(
+            save_to,
+            lambda output: write_dataframe(dataframe, output, output_format),
+            output_format,
+            f'.{output_format.value}',
+        )
+    except (OSError, UnicodeError, ValueError) as ex:
+        raise click.ClickException(str(ex)) from ex
 
 
 @cli.command('dump-table-names')

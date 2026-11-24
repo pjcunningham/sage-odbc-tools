@@ -68,6 +68,9 @@ Output data is written to stdout and diagnostics to stderr. Commands return a no
 | `dump-table-json-net-schemas NAMESPACE --output-directory DIR` | Generates a `.cs` schema file per table in the supplied C# namespace. |
 | `schema-to-mysql-ddl [--output PATH] TABLE_NAME` | Generates a MySQL DDL script for one table. |
 | `schemas-to-mysql-ddl --output-directory DIR` | Generates a `.sql` DDL file per table and an `_mysql_load_schemas.sql` loader file. |
+| `compare-schemas [--format FORMAT] [--output PATH] LEFT_PATH RIGHT_PATH` | Compares two schema text files or common `.txt` filenames in two directories and exports line-level differences. |
+
+`compare-schemas` is an offline command and does not require ODBC configuration. For directory inputs, only `.txt` files whose names occur in both directories are compared; unmatched files are ignored. The output contains left/right filenames, change type (`modified`, `added`, or `removed`), and line numbers. Schema lines represented as `Column(...)` are emitted as JSON objects in JSON output, or as individual `left_text_...` and `right_text_...` columns/elements in CSV, XLSX, and XML. Other changed lines remain in `left_text` and `right_text`. Differences default to CSV on stdout; use `--format csv`, `json`, `xlsx`, or `xml` and optionally `--output PATH` to save them. XLSX requires an output path.
 
 ### Queries and MySQL data loading
 
@@ -101,6 +104,9 @@ python -m sageodbc query-from-file --input .\queries\customers.sql --format xlsx
 # Save one table's schema, then print its row count
 python -m sageodbc dump-table-schema --output .\exports\sales-ledger-schema.txt SALES_LEDGER
 python -m sageodbc dump-table-count SALES_LEDGER
+
+# Compare one schema file with another and save the differences as JSON
+python -m sageodbc compare-schemas --format json --output .\exports\schema-diff.json .\old\customers.txt .\new\customers.txt
 
 # Generate MySQL table DDL for every table
 python -m sageodbc schemas-to-mysql-ddl --output-directory .\mysql-schema
