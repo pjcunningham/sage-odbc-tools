@@ -1,0 +1,18 @@
+[project]
+name = "sage-odbc-tools"
+version = "0.1.0"
+description = "A command line program to help get data out of Sage Line 50 via ODBC"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "attrs>=26.1.0",
+    "click>=8.5.0",
+    "click-log>=0.4.0",
+    "jinja2>=3.1.6",
+    "openpyxl>=3.1.5",
+    "pandas>=3.1.1",
+    "pyodbc>=5.3.0",
+    "pytest>=9.2.0",
+    "python-dotenv>=1.2.4",
+    "stringutils>=0.3.0",
+]
