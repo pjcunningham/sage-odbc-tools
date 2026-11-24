@@ -1,10 +1,13 @@
 import json
 import logging
+import warnings
+from types import SimpleNamespace
 from xml.etree import ElementTree
 
 import pandas as pd
 import pytest
 
+from sageodbc import exports
 from sageodbc.manager import Manager
 from sageodbc.models import Column, OutputFormatEnum, Table
 
@@ -121,3 +124,40 @@ def test_query_preserves_underlying_read_error(tmp_path, monkeypatch):
         manager.query('select invalid', str(tmp_path / 'invalid.csv'), OutputFormatEnum.csv)
 
     assert error.value.__cause__ is cause
+
+
+@pytest.mark.parametrize('read_function', ['query', 'table'])
+def test_read_suppresses_only_pandas_connection_warning_and_restores_filters(
+        monkeypatch, read_function
+):
+    logger = logging.getLogger('test.exports')
+
+    def read_sql(*args, **kwargs):
+        warnings.warn(
+            'pandas only supports SQLAlchemy connectable connections',
+            UserWarning,
+        )
+        warnings.warn('unrelated warning', RuntimeWarning)
+        return SimpleNamespace(shape=(0, 0))
+
+    monkeypatch.setattr('pandas.io.sql.read_sql', read_sql)
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter('always')
+        filters_before = list(warnings.filters)
+
+        if read_function == 'query':
+            exports.read_query(object(), 'select 1', logger)
+        else:
+            exports.read_table(object(), 'CUSTOMER', False, {}, logger)
+
+        assert warnings.filters == filters_before
+        warnings.warn(
+            'pandas only supports SQLAlchemy connectable connections',
+            UserWarning,
+        )
+
+    assert [str(warning.message) for warning in caught] == [
+        'unrelated warning',
+        'pandas only supports SQLAlchemy connectable connections',
+    ]

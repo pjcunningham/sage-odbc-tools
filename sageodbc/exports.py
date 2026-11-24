@@ -1,4 +1,5 @@
 import csv
+import warnings
 
 import pandas as pd
 
@@ -50,7 +51,13 @@ def write_dataframe(dataframe, output_filename, output_format):
 def read_query(connection, query, logger):
     try:
         logger.info(f'Running query: {query}')
-        dataframe = pd.io.sql.read_sql(query, connection)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'ignore',
+                message='pandas only supports SQLAlchemy connectable',
+                category=UserWarning,
+            )
+            dataframe = pd.io.sql.read_sql(query, connection)
     except Exception as ex:
         logger.error(ex)
         raise ValueError(f'Invalid query: {query}') from ex
@@ -69,7 +76,13 @@ def read_table(connection, table_name, include_deleted, dtype, logger):
 
     try:
         logger.info(f'Running query: {query}')
-        dataframe = pd.io.sql.read_sql(query, connection, dtype=dtype)
+        with warnings.catch_warnings():
+            warnings.filterwarnings(
+                'ignore',
+                message='pandas only supports SQLAlchemy connectable',
+                category=UserWarning,
+            )
+            dataframe = pd.io.sql.read_sql(query, connection, dtype=dtype)
     except Exception as ex:
         logger.error(ex)
         raise ValueError(f'Invalid query: {query}') from ex
