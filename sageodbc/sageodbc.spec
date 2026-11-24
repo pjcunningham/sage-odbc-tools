@@ -4,7 +4,7 @@ block_cipher = None
 
 
 a = Analysis(['cli.py'],
-             pathex=['D:\\Paul\\Documents\\GitHub\\sage-odbc\\sageodbc'],
+             pathex=['D:\\GitHub\\sage-odbc\\sageodbc'],
              binaries=None,
              datas=[('cacert.pem', '.'), ('templates/*', 'templates')],
              hiddenimports=[],
