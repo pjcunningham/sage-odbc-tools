@@ -1,5 +1,5 @@
 {% for table in tables %}
-LOAD DATA INFILE '{{ table.path }}' INTO TABLE {{ table.name }} FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' LINES TERMINATED BY '\r\n' IGNORE 1 ROWS
+LOAD DATA INFILE {{ table.path }} INTO TABLE {{ table.name }} FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '"' ESCAPED BY '"' LINES TERMINATED BY '\n' IGNORE 1 ROWS
 (
     {% for column in table.columns %}
         {{ column }} {{ ", " if not loop.last else "" }}
@@ -8,7 +8,7 @@ LOAD DATA INFILE '{{ table.path }}' INTO TABLE {{ table.name }} FIELDS TERMINATE
     {% if table.variables|length > 0 %}
     SET
         {% for variable in table.variables %}
-            {{ variable }} = nullif(@{{ variable }},'') {{ ", " if not loop.last else "" }}
+            {{ variable.column }} = NULLIF({{ variable.variable }}, '') {{ ", " if not loop.last else "" }}
         {% endfor %}
     {% endif %}
 ;

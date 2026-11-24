@@ -2,38 +2,121 @@
 __author__ = 'Paul Cunningham'
 __copyright = 'Copyright 2021, Paul Cunningham'
 
-import sys
 import logging
-from dotenv import dotenv_values
+import re
+import sys
+import tempfile
+import traceback
+from functools import wraps
 from pathlib import Path
+
 import click
 import click_log
-from .version import __version__
+from dotenv import dotenv_values
+
 from .manager import Manager
 from .models import OutputFormatEnum, OutputFormatType
-
+from .version import __version__
 
 logger = logging.getLogger(__name__)
 click_log.basic_config(logger)
 
-pass_manager = click.make_pass_decorator(Manager)
+def _redact_sensitive_values(text, manager):
+    password = manager.database.password
+    if password:
+        text = text.replace(password, '[REDACTED]')
+    return re.sub(r'(?i)(\b(?:pwd|password)\s*=\s*)[^;\s]+', r'\1[REDACTED]', text)
+
+
+def _handle_command_error(error, manager):
+    message = _redact_sensitive_values(str(error), manager).strip()
+    if not message:
+        message = f'Command failed with {type(error).__name__}.'
+
+    if manager.debug:
+        diagnostics = ''.join(traceback.format_exception(error))
+        logger.error('%s', _redact_sensitive_values(diagnostics, manager).rstrip())
+    else:
+        logger.error('%s', message)
+
+    raise click.ClickException(message) from error
+
+
+def _get_manager(ctx):
+    root_context = ctx.find_root()
+    options = root_context.obj
+    manager = options.get('manager')
+    if manager is not None:
+        return manager
+
+    try:
+        values = dotenv_values(options['env_file'])
+    except Exception as ex:
+        raise click.ClickException('Unable to read the ODBC configuration file.') from ex
+
+    required_settings = ('SAGE_ODBC_DSN', 'SAGE_USERNAME', 'SAGE_PASSWORD')
+    missing_settings = [setting for setting in required_settings if not values.get(setting)]
+    if missing_settings:
+        raise click.ClickException(
+            f"Missing required ODBC configuration setting(s): {', '.join(missing_settings)}."
+        )
+
+    manager = Manager(
+        logger,
+        values['SAGE_ODBC_DSN'],
+        values['SAGE_USERNAME'],
+        values['SAGE_PASSWORD'],
+        options['debug'],
+    )
+    options['manager'] = manager
+    root_context.call_on_close(manager.close)
+    return manager
+
+
+def pass_manager(function):
+    @click.pass_context
+    @wraps(function)
+    def wrapper(ctx, *args, **kwargs):
+        manager = _get_manager(ctx)
+        return ctx.invoke(function, manager, *args, **kwargs)
+
+    return wrapper
+
+
+def _write_text_output(output, callback, output_format=None, suffix='.txt'):
+    if output != '-':
+        return callback(output)
+
+    if output_format == OutputFormatEnum.xlsx:
+        raise click.ClickException('XLSX output requires a file path; use --output PATH.')
+
+    with tempfile.TemporaryDirectory() as temporary_directory:
+        temporary_output = Path(temporary_directory) / f'output{suffix}'
+        result = callback(str(temporary_output))
+        with temporary_output.open('r', encoding='utf-8', newline='') as output_file:
+            click.echo(output_file.read(), nl=False)
+        return result
+
+
+def _read_query_file(query_file):
+    if query_file == '-':
+        return sys.stdin.read()
+
+    with open(query_file, 'r', encoding='utf-8', newline='') as input_file:
+        return input_file.read()
 
 
 @click.group()
-@click.version_option(__version__, '-V', '--version', message='%(prog)s v%(version)s')
+@click.version_option(
+    __version__, '-V', '--version', prog_name='sageodbc',
+    message='%(prog)s v%(version)s',
+)
 @click_log.simple_verbosity_option(logger, default="WARNING")
 @click.option('--env-file', envvar='ENV_FILE')
 @click.option('--debug/--no-debug', default=False, envvar='SAGEODBC_DEBUG')
 @click.pass_context
 def cli(ctx, env_file, debug):
-    _values = dotenv_values(env_file)
-    ctx.obj = Manager(
-        logger,
-        _values['SAGE_ODBC_DSN'],
-        _values['SAGE_USERNAME'],
-        _values['SAGE_PASSWORD'],
-        debug
-    )
+    ctx.obj = {'env_file': env_file, 'debug': debug}
     logger.info(f"Debug mode is {'on' if debug else 'off'}")
 
 
@@ -44,31 +127,34 @@ def about():
 
 @cli.command('dump-table')
 @click.option('--include-deleted/--no-include-deleted', default=False)
+@click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @click.argument('table-name', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
-@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
 @pass_manager
 def dump_table(manager: Manager, include_deleted: bool, table_name: str, save_to: str, output_format: OutputFormatEnum):
-    """Dump a Sage table's data to file using a given format
+    """Dump a Sage table's data to stdout or a file using the selected format.
 
-       TABLE_NAME is the name of the table to dump.
-
-       SAVE_TO is the name of the file to dump to.
+       TABLE_NAME is the name of the table to dump. XLSX output requires --output.
     """
     logger.info(f'Table name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     logger.info(f'Include Deleted: {include_deleted}')
     try:
-        manager.dump_table(table_name, save_to, output_format, include_deleted)
+        _write_text_output(
+            save_to,
+            lambda output: manager.dump_table(table_name, output, output_format, include_deleted),
+            output_format,
+            f'.{output_format.value}',
+        )
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-tables')
 @click.option('--include-deleted/--no-include-deleted', default=False)
-@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
-@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
+@click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
 def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, output_format: OutputFormatEnum):
     """Dump all Sage tables data to a directory using a given format
@@ -86,31 +172,29 @@ def dump_tables(manager: Manager, include_deleted: bool, output_directory: str, 
     try:
         manager.dump_tables(output_directory, output_format, include_deleted)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-schema')
 @click.argument('table_name', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def dump_table_schema(manager: Manager, table_name: str, save_to: str):
-    """Dump a Sage table's schema to a text file
+    """Dump a Sage table's schema to stdout or a file.
 
        TABLE_NAME is the name of the table to dump.
-
-       SAVE_TO is the name of the file to dump to.
     """
 
     logger.info(f'Table name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.dump_table_schema(table_name, save_to)
+        _write_text_output(save_to, lambda output: manager.dump_table_schema(table_name, output))
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-schemas')
-@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
 def dump_table_schemas(manager: Manager, output_directory: str):
     """Dump all Sage table schemas to a directory
@@ -126,39 +210,33 @@ def dump_table_schemas(manager: Manager, output_directory: str):
     try:
         manager.dump_table_schemas(output_directory)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-names')
-@click.argument('save-to', type=click.Path(exists=False), )
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False), default='-', show_default=True)
 @pass_manager
 def dump_table_names(manager: Manager, save_to: str):
-    """Dump all Sage table names to a text file
-
-       SAVE_TO is the name of the file to dump to.
-    """
+    """Dump all Sage table names to stdout or a file."""
 
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.dump_table_names(save_to)
+        _write_text_output(save_to, manager.dump_table_names)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-counts')
-@click.argument('save-to', type=click.Path(exists=False), )
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False), default='-', show_default=True)
 @pass_manager
 def dump_table_counts(manager: Manager, save_to: str):
-    """Dump all Sage table counts to a text file
-
-       SAVE_TO is the name of the file to dump to.
-    """
+    """Dump all Sage table counts to stdout or a file."""
 
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.dump_table_counts(save_to)
+        _write_text_output(save_to, manager.dump_table_counts)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-count')
@@ -175,31 +253,29 @@ def dump_table_count(manager: Manager, table_name: str):
         _count = manager.dump_table_count(table_name)
         click.echo(_count)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-rest-schema')
 @click.argument('table_name', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def dump_table_rest_schema(manager: Manager, table_name: str, save_to: str):
-    """Create a flask-rest-jsonapi schema file
+    """Create a flask-rest-jsonapi schema on stdout or in a file.
 
        TABLE_NAME is the name of the table.
-
-       SAVE_TO is the name of the file to dump to.
     """
 
     logger.info(f'Table Name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.dump_table_rest_schema(table_name, save_to)
+        _write_text_output(save_to, lambda output: manager.dump_table_rest_schema(table_name, output))
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-rest-schemas')
-@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
 def dump_table_rest_schemas(manager: Manager, output_directory: str):
     """Create a flask-rest-jsonapi schema file for all Sage tables
@@ -215,35 +291,33 @@ def dump_table_rest_schemas(manager: Manager, output_directory: str):
     try:
         manager.dump_table_rest_schemas(output_directory)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-json-net-schema')
 @click.argument('table_name', type=str)
 @click.argument('namespace', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def dump_table_json_net_schema(manager: Manager, table_name: str, namespace: str, save_to: str):
-    """Create a JSON.NET schema file
+    """Create a JSON.NET schema on stdout or in a file.
 
        TABLE_NAME is the name of the table.
 
        NAMESPACE is the namespace of c# class.
-
-       SAVE_TO is the name of the file to dump to.
     """
 
     logger.info(f'Table Name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.dump_table_json_net_schema(table_name, namespace, save_to)
+        _write_text_output(save_to, lambda output: manager.dump_table_json_net_schema(table_name, namespace, output))
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('dump-table-json-net-schemas')
 @click.argument('namespace', type=str)
-@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
 def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directory: str):
     """Create a JSON.NET schema file for all Sage tables
@@ -261,58 +335,62 @@ def dump_table_json_net_schemas(manager: Manager, namespace: str, output_directo
     try:
         manager.dump_table_json_net_schemas(namespace, output_directory)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('query')
 @click.argument('query', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
-@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def query(manager: Manager, query: str, save_to: str, output_format: OutputFormatEnum):
-    """Execute a Sage query and dump results to file using a given format
+    """Execute a Sage query and dump results to stdout or a file.
 
-        QUERY: the query to execute a
-
-        SAVE_TO is the name of the file to dump to.
-
+        QUERY is the SQL statement to execute. XLSX output requires --output.
     """
     logger.info(f'Query: {query}')
     logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     try:
-        manager.query(query, save_to, output_format)
+        _write_text_output(
+            save_to,
+            lambda output: manager.query(query, output, output_format),
+            output_format,
+            f'.{output_format.value}',
+        )
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('query-from-file')
-@click.argument('query-file', type=click.Path(exists=True, dir_okay=False, file_okay=True))
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
-@click.argument('output-format', type=OutputFormatType(OutputFormatEnum))
+@click.option('--input', 'query_file', required=True, help='SQL file to read, or - to read SQL from stdin.')
+@click.option('-f', '--format', 'output_format', type=OutputFormatType(OutputFormatEnum), default=OutputFormatEnum.csv, show_default=True)
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def query_from_file(manager: Manager, query_file: str, save_to: str, output_format: OutputFormatEnum):
-    """Execute a Sage query and dump results to file using a given format
+    """Execute SQL from a file or stdin and dump results to stdout or a file.
 
-        QUERY_FILE: the query file to execute a
-
-        SAVE_TO is the name of the file to dump to.
-
+        Use --input - to read SQL from stdin. XLSX output requires --output.
     """
     logger.info(f'Query File: {query_file}')
     logger.info(f'Save to file: {save_to}')
     logger.info(f'Output format: {output_format}')
     try:
-        query_text = Path(query_file).read_text().replace('\n', ' ')
-        manager.query(query_text, save_to, output_format)
+        query_text = _read_query_file(query_file)
+        _write_text_output(
+            save_to,
+            lambda output: manager.query(query_text, output, output_format),
+            output_format,
+            f'.{output_format.value}',
+        )
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('query-to-sql')
 @click.argument('query', type=str)
 @click.argument('table_name', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
     """Execute a Sage query and dump results to a sql INSERT INTO file
@@ -328,14 +406,14 @@ def query_to_sql(manager: Manager, query: str, table_name: str, save_to: str):
     logger.info(f'Table Name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.query_to_sql(query, table_name, save_to)
+        _write_text_output(save_to, lambda output: manager.query_to_sql(query, table_name, output), suffix='.sql')
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('schema-to-mysql-ddl')
 @click.argument('table_name', type=str)
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
     """Create a MySQL DDL schema file for a table
@@ -347,13 +425,13 @@ def schema_to_mysql_ddl(manager: Manager, table_name: str, save_to: str):
     logger.info(f'Table Name: {table_name}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.schema_to_mysql_ddl(table_name, save_to)
+        _write_text_output(save_to, lambda output: manager.schema_to_mysql_ddl(table_name, output), suffix='.sql')
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('schemas-to-mysql-ddl')
-@click.argument('output-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
+@click.option('--output-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
 @pass_manager
 def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
     """Create MySQL DDL schema files for all tables
@@ -366,13 +444,13 @@ def schemas_to_mysql_ddl(manager: Manager, output_directory: str):
     try:
         manager.schemas_to_mysql_ddl(output_directory)
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 @cli.command('generate-mysql-load-data')
 @click.option('--exclude-table', '-et', type=str, multiple=True)
-@click.argument('input-directory', type=click.Path(exists=True, dir_okay=True, file_okay=False), )
-@click.argument('save-to', type=click.Path(exists=False, dir_okay=False, file_okay=True), )
+@click.option('--input-directory', required=True, type=click.Path(exists=True, dir_okay=True, file_okay=False))
+@click.option('-o', '--output', 'save_to', type=click.Path(exists=False, dir_okay=False, file_okay=True), default='-', show_default=True)
 @pass_manager
 def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_directory: str, save_to: str):
     """Creates a MySQL sql file to load multiple sql insert files
@@ -386,9 +464,13 @@ def generate_mysql_load_data(manager: Manager, exclude_table: list[str], input_d
     logger.info(f'Input Directory: {input_directory}')
     logger.info(f'Save to file: {save_to}')
     try:
-        manager.generate_mysql_load_data(input_directory, save_to, exclude_table)
+        _write_text_output(
+            save_to,
+            lambda output: manager.generate_mysql_load_data(input_directory, output, exclude_table),
+            suffix='.sql',
+        )
     except Exception as ex:
-        logger.error(ex, exc_info=manager.debug)
+        _handle_command_error(ex, manager)
 
 
 commands = [

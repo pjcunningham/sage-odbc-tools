@@ -1,18 +1,21 @@
 # -*- mode: python -*-
 
+import os
+
 block_cipher = None
+package_dir = os.path.abspath(SPECPATH)
+project_dir = os.path.dirname(package_dir)
 
 
-a = Analysis(['cli.py'],
-             pathex=['D:\\GitHub\\sage-odbc\\sageodbc'],
+a = Analysis([os.path.join(package_dir, '__main__.py')],
+             pathex=[project_dir],
              binaries=None,
-             datas=[('cacert.pem', '.'), ('templates/*', 'templates')],
+             datas=[(os.path.join(package_dir, 'cacert.pem'), '.'),
+                    (os.path.join(package_dir, 'templates'), 'templates')],
              hiddenimports=[],
              hookspath=[],
              runtime_hooks=[],
              excludes=[],
-             win_no_prefer_redirects=False,
-             win_private_assemblies=False,
              cipher=block_cipher)
 
 pyz = PYZ(a.pure, a.zipped_data,
@@ -23,8 +26,8 @@ exe = EXE(pyz,
           a.zipfiles,
           a.datas,
           name='sageodbc',
-          icon='sageodbc.ico',
-          version='version.txt',
+          icon=os.path.join(package_dir, 'sageodbc.ico'),
+          version=os.path.join(package_dir, 'version.txt'),
           debug=False,
           strip=False,
           upx=True,

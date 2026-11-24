@@ -1,8 +1,12 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "sage-odbc-tools"
 version = "0.1.0"
 description = "A command line program to help get data out of Sage Line 50 via ODBC"
-readme = "README.md"
+readme = "readme.md"
 requires-python = ">=3.12"
 dependencies = [
     "attrs>=26.1.0",
@@ -12,7 +16,16 @@ dependencies = [
     "openpyxl>=3.1.5",
     "pandas>=3.1.1",
     "pyodbc>=5.3.0",
-    "pytest>=9.2.0",
     "python-dotenv>=1.2.4",
     "stringutils>=0.3.0",
 ]
+
+[project.scripts]
+sageodbc = "sageodbc.cli:cli"
+
+[dependency-groups]
+dev = ["pytest>=9.2.0"]
+build = ["pyinstaller>=6.22.3"]
+
+[tool.setuptools.package-data]
+sageodbc = ["templates/*.html"]
